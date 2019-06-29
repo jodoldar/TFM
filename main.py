@@ -22,6 +22,7 @@ import swagger_client
 from swagger_client.rest import ApiException
 from pprint import pprint
 
+from chunk import Chunk
 
 class TFM_Application():
     vehicles_db = {"Tesla Model X LR": {"Capacity": 100, "Cons": [14.5, 28.8]},
@@ -48,7 +49,7 @@ class TFM_Application():
         
         # Initialization of the window
         self.root.geometry("{}x{}".format(width, height))
-        self.root.resizable(width=False, height=False)
+        self.root.resizable(width=True, height=False)
         self.root.title('Route calculator')
 
         self.root.grid_rowconfigure(0, weight=1)
@@ -171,6 +172,8 @@ class TFM_Application():
 
         x_axis = np.arange(0,len(altitudes),1)
         np_alts = np.array(inclination)
+        self.alts = np.array(altitudes)
+        self.chunk_size = api_response.paths[0].distance / len(api_response.paths[0].points.coordinates)
 
         # Calculate divisor for reshepe
         ######################################################
@@ -277,6 +280,21 @@ class TFM_Application():
             scores.append(calc)
         
         return scores
+
+    def v2_obtainScores(self, population, consumptions):
+        scores = []
+        for elem in population:
+            scores.append(self.v2_score(elem))
+    
+    def v2_score(self, profile):
+        chunks = []
+        for i in range(0, len(self.alts)-1):
+            lcl_slope = ((self.alts[i+1] - self.alts)/self.chunk_size) * 100
+            if (i == 0):
+                chunks.append(Chunk(0, profile[i], lcl_slope))
+            else:
+                chunks.append(Chunk(chunks[-1].v1, profile[i], lcl_slope))
+        return 0
     
     def mixPopulation(self, pos, population):
         #print("Mix population of pos {} & {}".format(pos, pos+1))
