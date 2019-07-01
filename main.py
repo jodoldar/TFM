@@ -75,9 +75,13 @@ class TFM_Application():
         self.dest_p_lab.grid(column=0, row=2)
         self.dest_p.grid(column=0, row=3, sticky="we")
 
-        # Calculation button
-        self.calc_button = ttk.Button(self.leftFrame, text='Cálculo', command=self.getRouteProfile)
+        # Obtain route from API
+        self.calc_button = ttk.Button(self.leftFrame, text='Obtener ruta', command=self.getRouteProfile)
         self.calc_button.grid(column=0, row=5, sticky="we")
+
+        # Calculate optimum profile
+        self.profile_button = ttk.Button(self.leftFrame, text='Cálculo', command=self.getOptimumProfile)
+        self.profile_button.grid(column=0, row=6, sticky="we")
 
         # Get Window Information
         self.button_getInfo = ttk.Button(self.centerFrame, text='Informame',
@@ -170,7 +174,7 @@ class TFM_Application():
         inclination.append(0)
         neutro = scipy.zeros(len(inclination))
 
-        x_axis = np.arange(0,len(altitudes),1)
+        self.x_axis = np.arange(0,len(altitudes),1)
         np_alts = np.array(inclination)
         self.alts = np.array(altitudes)
         self.chunk_size = api_response.paths[0].distance / len(api_response.paths[0].points.coordinates)
@@ -199,9 +203,9 @@ class TFM_Application():
         #print(sampled_inc)
 
         #self.axis0.plot(altitudes, 'gx')
-        self.axis0.fill_between(x_axis, altitudes, color='blue')
-        self.axis0.fill_between(x_axis, altitudes, where=sampled_inc<neutro, color='green')
-        self.axis0.fill_between(x_axis, altitudes, where=sampled_inc>neutro, color='red')
+        self.axis0.fill_between(self.x_axis, altitudes, color='blue')
+        self.axis0.fill_between(self.x_axis, altitudes, where=sampled_inc<neutro, color='green')
+        self.axis0.fill_between(self.x_axis, altitudes, where=sampled_inc>neutro, color='red')
         self.axis0.set_xlim(0, len(altitudes)); self.axis0.set_ylim(0,max(altitudes))
         self.axis0.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
         self.axis0.tick_params(axis='y', which='both', left=False, right=False, labelleft=False)
@@ -221,8 +225,37 @@ class TFM_Application():
         ###################################################
 
         ###################################################
+        # Calculate cruise accelerations
+        # Cruise[A,B,C,D,E] -> A:[0-20], B:[21-40], C:[41-70], D:[71-100], E:[101-120]
+        self.cruise = {}
+        self.cruise['A'] = np.interp(0.15, [0, 1], self.vehicles_db["Tesla Model X LR"]["Cons"])
+        self.cruise['B'] = np.interp(0.20, [0, 1], self.vehicles_db["Tesla Model X LR"]["Cons"])
+        self.cruise['C'] = np.interp(0.25, [0, 1], self.vehicles_db["Tesla Model X LR"]["Cons"])
+        self.cruise['D'] = np.interp(0.35, [0, 1], self.vehicles_db["Tesla Model X LR"]["Cons"])
+        self.cruise['E'] = np.interp(0.50, [0, 1], self.vehicles_db["Tesla Model X LR"]["Cons"])
+
+        print("Accl. Profile: {}".format(self.cruise.items()))
+        print("Roads: {}".format(api_response.paths[0].details['road_class']))
+        self.road_speeds = np.full((len(self.alts),1), 50)
+        for road_block in api_response.paths[0].details['road_class']:
+            if road_block[2] == 'residential':
+                max_speed = 30
+            elif road_block[2] == 'tertiary':
+                max_speed = 50
+            elif road_block[2] == 'secondary':
+                max_speed = 80
+            elif road_block[2] == 'primary':
+                max_speed = 100
+            else:
+                max_speed = 120
+            
+            for i in range(road_block[0], road_block[1]-1):
+                self.road_speeds[i] = max_speed
+
+    def getOptimumProfile(self):
+        ###################################################
         # Creating population
-        population = self.createPopulation(len(altitudes))
+        population = self.createPopulation(len(self.alts))
 
         # Obtain initial scores
         scores = self.obtainScores(population, self.vehicles_db["Tesla Model X LR"]["Cons"])
@@ -231,7 +264,7 @@ class TFM_Application():
         self.bestScore = min(scores)
         self.bestElem = deepcopy(population[np.argmin(scores)])
 
-        num_iterations = 200
+        num_iterations = 10
         is_even = len(population)%2 == 0
         print("Is the population even? {}".format(is_even))
 
@@ -251,7 +284,7 @@ class TFM_Application():
             population = deepcopy(self.newPopulation)
             self.newPopulation = []
 
-            scores = self.obtainScores(population, self.vehicles_db["Tesla Model X LR"]["Cons"])
+            scores = self.v2_obtainScores(population, self.vehicles_db["Tesla Model X LR"]["Cons"])
             #print(scores)
             if (min(scores) < self.bestScore):
                 self.bestScore = min(scores)
@@ -259,7 +292,7 @@ class TFM_Application():
             print("{}, {}".format(self.bestScore, sum(self.bestElem)))
 
             self.axis1.clear()
-            self.axis1.plot(x_axis, self.bestElem)
+            self.axis1.plot(self.x_axis, self.bestElem)
             self.axis1.set_xlim(0, len(self.bestElem)); self.axis1.set_ylim(0,1)
             self.canvas2.draw()
 
@@ -284,17 +317,40 @@ class TFM_Application():
     def v2_obtainScores(self, population, consumptions):
         scores = []
         for elem in population:
-            scores.append(self.v2_score(elem))
+            scores.append(self.v2_score(elem, consumptions))
+        
+        return scores
     
-    def v2_score(self, profile):
+    def v2_score(self, profile, consumptions):
         chunks = []
+        cons = 0
         for i in range(0, len(self.alts)-1):
-            lcl_slope = ((self.alts[i+1] - self.alts)/self.chunk_size) * 100
+            lcl_slope = ((self.alts[i+1] - self.alts[i])/self.chunk_size) * 100
             if (i == 0):
                 chunks.append(Chunk(0, profile[i], lcl_slope))
+                #print("Initial slope is {}".format(lcl_slope))
             else:
                 chunks.append(Chunk(chunks[-1].v1, profile[i], lcl_slope))
-        return 0
+
+            # Once the chunk is created, the v1 speed is calculated
+            adapt_cruise_accel = 0
+            initial_spd = chunks[-1].v0
+            if initial_spd < 20:
+                adapt_cruise_accel = self.cruise['A']
+            elif initial_spd < 40:
+                adapt_cruise_accel = self.cruise['B']
+            elif initial_spd < 70:
+                adapt_cruise_accel = self.cruise['C']
+            elif initial_spd < 100:
+                adapt_cruise_accel = self.cruise['D']
+            else:
+                adapt_cruise_accel = self.cruise['E']
+
+            chunks[-1].calculate_v1(self.chunk_size, adapt_cruise_accel, self.road_speeds[i])
+
+            cons += np.interp(chunks[-1].accel, [0,1], consumptions) / chunks[-1].est_time_s
+        
+        return cons
     
     def mixPopulation(self, pos, population):
         #print("Mix population of pos {} & {}".format(pos, pos+1))
