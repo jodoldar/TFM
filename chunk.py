@@ -14,4 +14,4 @@ class Chunk:
             est_time = space / self.v0
             self.est_time_s = space / (self.v0 / 3.6)
         
-        self.v1 = self.v0 + (self.accel - cruise_accel) * est_time
+        self.v1 = max(self.v0 + (self.accel - cruise_accel) * est_time, 0)

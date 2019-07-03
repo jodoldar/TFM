@@ -17,6 +17,7 @@ import scipy
 import numpy as np
 from random import shuffle
 from copy import deepcopy
+from haversine import haversine, Unit
 
 import swagger_client
 from swagger_client.rest import ApiException
@@ -146,6 +147,7 @@ class TFM_Application():
         instructions = False
         details = ['road_class']
 
+        coordinates = []
         altitudes = []
         inclination = []
 
@@ -157,6 +159,7 @@ class TFM_Application():
             text_info += "Distance: {:.2f} km.\nTime: {:.2f} min.\nTotal points: {}\n".format(api_response.paths[0].distance/1000, api_response.paths[0].time/60000,len(api_response.paths[0].points.coordinates))
             text_info += "Types of roads: {}\n".format(len(api_response.paths[0].details['road_class']))
             for coordinate in api_response.paths[0].points.coordinates:
+                coordinates.append([coordinate[0], coordinate[1]])
                 altitudes.append(coordinate[2])
         except ApiException as e:
             print("Exception when calling GeocodignApi->geocode_get: %s\n" % e)
@@ -178,6 +181,11 @@ class TFM_Application():
         np_alts = np.array(inclination)
         self.alts = np.array(altitudes)
         self.chunk_size = api_response.paths[0].distance / len(api_response.paths[0].points.coordinates)
+
+        self.real_chunk_sizes = []
+        for i in range(0, len(coordinates)-1):
+            self.real_chunk_sizes.append(haversine(coordinates[i], coordinates[i+1], unit=Unit.METERS))
+        
 
         # Calculate divisor for reshepe
         ######################################################
@@ -258,13 +266,13 @@ class TFM_Application():
         population = self.createPopulation(len(self.alts))
 
         # Obtain initial scores
-        scores = self.obtainScores(population, self.vehicles_db["Tesla Model X LR"]["Cons"])
+        scores = self.v2_obtainScores(population, self.vehicles_db["Tesla Model X LR"]["Cons"])
 
         print(scores)
         self.bestScore = min(scores)
         self.bestElem = deepcopy(population[np.argmin(scores)])
 
-        num_iterations = 10
+        num_iterations = 0
         is_even = len(population)%2 == 0
         print("Is the population even? {}".format(is_even))
 
@@ -301,7 +309,7 @@ class TFM_Application():
 
 
     def createPopulation(self, shape):
-        return np.random.rand(25, shape)
+        return np.random.rand(5, shape)
 
     def obtainScores(self, population, consumptions):
         scores = []
@@ -325,7 +333,8 @@ class TFM_Application():
         chunks = []
         cons = 0
         for i in range(0, len(self.alts)-1):
-            lcl_slope = ((self.alts[i+1] - self.alts[i])/self.chunk_size) * 100
+            lcl_slope = ((self.alts[i+1] - self.alts[i])/self.real_chunk_sizes[i]) * 100
+            #print("Alt1: {}, Alt2: {}, Dist: {}, Slope:{}".format(self.alts[i], self.alts[i+1], self.real_chunk_sizes[i], lcl_slope))
             if (i == 0):
                 chunks.append(Chunk(0, profile[i], lcl_slope))
                 #print("Initial slope is {}".format(lcl_slope))
@@ -345,13 +354,30 @@ class TFM_Application():
                 adapt_cruise_accel = self.cruise['D']
             else:
                 adapt_cruise_accel = self.cruise['E']
+            
+            adapt_cruise_accel = np.interp(adapt_cruise_accel, consumptions, [0,1])
 
-            chunks[-1].calculate_v1(self.chunk_size, adapt_cruise_accel, self.road_speeds[i])
+            chunks[-1].calculate_v1(self.real_chunk_sizes[i], adapt_cruise_accel, self.road_speeds[i])
 
             cons += np.interp(chunks[-1].accel, [0,1], consumptions) / chunks[-1].est_time_s
+
+            print("Chunk {}. v0-> {}, v1-> {}, accel-> {}[{}], slp: {}[{}]".format(i, chunks[-1].v0, chunks[-1].v1, chunks[-1].accel, adapt_cruise_accel, chunks[-1].slope, self.real_chunk_sizes[i]))
         
+        if (not self.v2_checkValid(chunks)):
+            #print(profile)
+            return -1
+
         return cons
     
+    # In this function, it has to be checked different facts:
+    #   - In any moment the v1 speed is higher than the road limit.
+    def v2_checkValid(self, chunks):
+        for i in range(len(chunks)):
+            if (chunks[i].v1 > self.road_speeds[i]):
+                print("Profile not valid. {} is greater than {}. (v0: {}, v1: {}, accel: {}, slp:{}, dist: {}".format(chunks[i].v1, self.road_speeds[i], chunks[i].v0, chunks[i].v1, chunks[i].accel, chunks[i].slope, self.real_chunk_sizes[i]))
+                return False
+        return True
+
     def mixPopulation(self, pos, population):
         #print("Mix population of pos {} & {}".format(pos, pos+1))
         l1 = population[pos]
