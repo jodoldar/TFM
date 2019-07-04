@@ -14,4 +14,47 @@ class Chunk:
             est_time = space / self.v0
             self.est_time_s = space / (self.v0 / 3.6)
         
-        self.v1 = max(self.v0 + (self.accel - cruise_accel) * est_time, 0)
+        if (self.slope > 2):
+            if (self.accel > (cruise_accel + 0.1)):
+                # La velocidad sube
+                self.v1 = self.v0 + (self.accel - (cruise_accel + 0.1)) * est_time
+            else:
+                # La velocidad baja
+                self.v1 = max(0, self.v0 - (self.accel - (cruise_accel + 0.1)) * est_time)
+        elif (self.slope > 5):
+            if (self.accel > (cruise_accel + 0.2)):
+                # La velocidad sube
+                self.v1 = self.v0 + (self.accel - (cruise_accel + 0.2)) * est_time
+            else:
+                # La velocidad baja
+                self.v1 = max(0, self.v0 - (self.accel - (cruise_accel + 0.2)) * est_time)
+        elif (self.slope > 10):
+            if (self.accel > (cruise_accel + 0.25)):
+                # La velocidad sube
+                self.v1 = self.v0 + (self.accel - (cruise_accel + 0.25)) * est_time
+            else:
+                # La velocidad baja
+                self.v1 = max(0, self.v0 - (self.accel - (cruise_accel + 0.25)) * est_time)
+        elif (self.slope < -2):
+            if (self.accel > (cruise_accel - 0.1)):
+                # La velocidad sube
+                self.v1 = self.v0 + (self.accel - max(0,(cruise_accel - 0.1))) * est_time
+            else:
+                # La velocidad baja
+                self.v1 = max(0, self.v0 - (self.accel - max(0,(cruise_accel - 0.1))) * est_time)
+        elif (self.slope < -5):
+            if (self.accel > (cruise_accel - 0.2)):
+                # La velocidad sube
+                self.v1 = self.v0 + (self.accel - max(0,(cruise_accel - 0.2))) * est_time
+            else:
+                # La velocidad baja
+                self.v1 = max(0, self.v0 - (self.accel - max(0,(cruise_accel - 0.2))) * est_time)
+        elif (self.slope < -10):
+            if (self.accel > (cruise_accel - 0.25)):
+                # La velocidad sube
+                self.v1 = self.v0 + (self.accel - max(0,(cruise_accel - 0.25))) * est_time
+            else:
+                # La velocidad baja
+                self.v1 = max(0, self.v0 - (self.accel - max(0,(cruise_accel - 0.25))) * est_time)
+        else:
+            self.v1 = max(0, self.v0 + (self.accel - cruise_accel) * est_time)

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
-from tkinter import *
+from tkinter import Tk, StringVar, Frame, Text, END
 from tkinter import ttk
 
 import matplotlib
@@ -264,6 +264,7 @@ class TFM_Application():
         ###################################################
         # Creating population
         population = self.createPopulation(len(self.alts))
+        print(population)
 
         # Obtain initial scores
         scores = self.v2_obtainScores(population, self.vehicles_db["Tesla Model X LR"]["Cons"])
@@ -309,7 +310,15 @@ class TFM_Application():
 
 
     def createPopulation(self, shape):
-        return np.random.rand(5, shape)
+        pops = []
+        print("Creating population...", end='', flush=True)
+        while (len(pops) < shape):
+            candidate = np.random.rand(1, shape)*2 - 1
+            if (self.v2_score(candidate[0], self.vehicles_db["Tesla Model X LR"]["Cons"]) != -1):
+                pops.append(candidate)
+                print(" {}".format(len(pops)), end='', flush=True)
+        print("")
+        return pops
 
     def obtainScores(self, population, consumptions):
         scores = []
@@ -359,9 +368,11 @@ class TFM_Application():
 
             chunks[-1].calculate_v1(self.real_chunk_sizes[i], adapt_cruise_accel, self.road_speeds[i])
 
-            cons += np.interp(chunks[-1].accel, [0,1], consumptions) / chunks[-1].est_time_s
+            # In the case there is a negative acceleration (i.e the car is braking), there is no consumption
+            if (chunks[-1].accel > 0):
+                cons += np.interp(chunks[-1].accel, [0,1], consumptions) / chunks[-1].est_time_s
 
-            print("Chunk {}. v0-> {}, v1-> {}, accel-> {}[{}], slp: {}[{}]".format(i, chunks[-1].v0, chunks[-1].v1, chunks[-1].accel, adapt_cruise_accel, chunks[-1].slope, self.real_chunk_sizes[i]))
+            #print("Chunk {}. v0-> {}, v1-> {}, accel-> {}[{}], slp: {}[{}]".format(i, chunks[-1].v0, chunks[-1].v1, chunks[-1].accel, adapt_cruise_accel, chunks[-1].slope, self.real_chunk_sizes[i]))
         
         if (not self.v2_checkValid(chunks)):
             #print(profile)
@@ -374,7 +385,7 @@ class TFM_Application():
     def v2_checkValid(self, chunks):
         for i in range(len(chunks)):
             if (chunks[i].v1 > self.road_speeds[i]):
-                print("Profile not valid. {} is greater than {}. (v0: {}, v1: {}, accel: {}, slp:{}, dist: {}".format(chunks[i].v1, self.road_speeds[i], chunks[i].v0, chunks[i].v1, chunks[i].accel, chunks[i].slope, self.real_chunk_sizes[i]))
+                #print("Profile not valid. {} is greater than {}. (v0: {}, v1: {}, accel: {}, slp:{}, dist: {}".format(chunks[i].v1, self.road_speeds[i], chunks[i].v0, chunks[i].v1, chunks[i].accel, chunks[i].slope, self.real_chunk_sizes[i]))
                 return False
         return True
 
@@ -398,7 +409,7 @@ class TFM_Application():
                 population[pos][i] = np.random.rand()
 
 def main():
-    my_app = TFM_Application(width=800, height=512)
+    my_app = TFM_Application(width=875, height=512)
     return 0
 
 
