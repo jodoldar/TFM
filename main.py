@@ -273,11 +273,12 @@ class TFM_Application():
         scores = self.v2_obtainScores(population, self.vehicles_db["Tesla Model X LR"]["Cons"])
 
         print(scores)
-        self.bestScore = min(scores)
-        self.bestElem = deepcopy(population[np.argmin(scores)])
+        minScores = float(min([n for n in scores if n>0], default=1000000))
+        self.bestScore = minScores
+        self.bestElem = deepcopy(population[scores.index(minScores)])
         print("Best score before start is {}.".format(self.bestScore))
 
-        num_iterations = 10
+        num_iterations = 30
         is_even = len(population)%2 == 0
         print("Is the population even? {}".format(is_even))
 
@@ -302,9 +303,9 @@ class TFM_Application():
             minScores = min([n for n in scores if n>0], default=1000000)
             print(" {} ¿{} < {}?".format(minScores, minScores, self.bestScore))
             if (minScores < self.bestScore):
-                print("Update: {}, pos of. {}".format(minScores, population.index(minScores.any())))
+                print("Update: {}, pos of. {}".format(minScores.all(), scores.index(minScores)))
                 self.bestScore = minScores
-                self.bestElem = deepcopy(population[population.index(minScores)])
+                self.bestElem = deepcopy(population[scores.index(minScores)])
             print("{}, {}".format(self.bestScore, sum(self.bestElem)))
 
             self.axis1.clear()
@@ -331,9 +332,9 @@ class TFM_Application():
         pops = []
         self.pool = mp.Pool(mp.cpu_count()-1)
         print("Creating population...", end='', flush=True)
-        while (len(pops) < 15):
+        while (len(pops) < 30):
             createSubjectsS=partial(v2_create_subjects_par, shape=shape, alts=self.alts, consumption=self.vehicles_db["Tesla Model X LR"]["Cons"], real_chunk_sizes=self.real_chunk_sizes, cruise=self.cruise, road_speeds=self.road_speeds)
-            candidates = self.pool.map(createSubjectsS,list(range(20*mp.cpu_count()-1)))
+            candidates = self.pool.map(createSubjectsS,list(range(30*mp.cpu_count()-1)))
             for elem in candidates:
                 if (elem[0] != -1):
                     pops.append(elem[1])
