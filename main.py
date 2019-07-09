@@ -10,6 +10,8 @@ matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 
+import multiprocessing as mp
+from functools import partial
 
 import time
 import json
@@ -24,6 +26,7 @@ from swagger_client.rest import ApiException
 from pprint import pprint
 
 from chunk import Chunk
+from par_lib import v2_create_subjects_par, v2_create_subject_par, v2_score_par, v2_check_valid_par
 
 class TFM_Application():
     vehicles_db = {"Tesla Model X LR": {"Capacity": 100, "Cons": [14.5, 28.8]},
@@ -39,8 +42,8 @@ class TFM_Application():
 
         self.origin = StringVar(); self.origin.set("39.462160,-0.324177")
         self.destination = StringVar(); self.destination.set("39.441699,-0.595555")
-        self.figure = Figure(figsize= ((width-160)/100, 3.3), dpi=100)
-        self.figure2 = Figure(figsize= ((width-160)/100, 0.15), dpi=100)
+        self.figure = Figure(figsize= ((width-190)/100, 3.3), dpi=100)
+        self.figure2 = Figure(figsize= ((width-190)/100, 0.15), dpi=100)
         self.axis0 = self.figure.add_axes((0.01, 0.02, 0.98, 0.98), frameon=True)
         self.axis1 = self.figure2.add_axes((0.01, 0.04, 0.98, 0.95), frameon=True)
         self.axis0.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
@@ -57,8 +60,8 @@ class TFM_Application():
         self.root.grid_columnconfigure(1, weight=1)
 
         # Left Column
-        self.leftFrame = Frame(self.root, bg='beige', width=150, height=400)
-        self.leftFrame.grid(row=0, column=0, sticky="ns")
+        self.leftFrame = Frame(self.root, bg='beige', width=80, height=400)
+        self.leftFrame.grid(row=0, column=0, sticky="nsew")
 
         # Center Zone
         self.centerFrame = Frame(self.root, bg='beige', width=450, height=400)
@@ -66,7 +69,7 @@ class TFM_Application():
 
         # Origin point
         self.origin_p_lab = ttk.Label(self.leftFrame, text='Origen:')
-        self.origin_p = ttk.Entry(self.leftFrame, textvariable=self.origin, width=25)
+        self.origin_p = ttk.Entry(self.leftFrame, textvariable=self.origin, width=20)
         self.origin_p_lab.grid(column=0, row=0)
         self.origin_p.grid(column=0, row=1, sticky="we")
 
@@ -263,8 +266,8 @@ class TFM_Application():
     def getOptimumProfile(self):
         ###################################################
         # Creating population
-        population = self.createPopulation(len(self.alts))
-        print(population)
+        population = self.createParallelPopulation(len(self.alts))
+        #print(population)
 
         # Obtain initial scores
         scores = self.v2_obtainScores(population, self.vehicles_db["Tesla Model X LR"]["Cons"])
@@ -272,8 +275,9 @@ class TFM_Application():
         print(scores)
         self.bestScore = min(scores)
         self.bestElem = deepcopy(population[np.argmin(scores)])
+        print("Best score before start is {}.".format(self.bestScore))
 
-        num_iterations = 0
+        num_iterations = 10
         is_even = len(population)%2 == 0
         print("Is the population even? {}".format(is_even))
 
@@ -294,10 +298,13 @@ class TFM_Application():
             self.newPopulation = []
 
             scores = self.v2_obtainScores(population, self.vehicles_db["Tesla Model X LR"]["Cons"])
-            #print(scores)
-            if (min(scores) < self.bestScore):
-                self.bestScore = min(scores)
-                self.bestElem = deepcopy(population[np.argmin(scores)])
+            print(scores, end='')
+            minScores = min([n for n in scores if n>0], default=1000000)
+            print(" {} ¿{} < {}?".format(minScores, minScores, self.bestScore))
+            if (minScores < self.bestScore):
+                print("Update: {}, pos of. {}".format(minScores, population.index(minScores.any())))
+                self.bestScore = minScores
+                self.bestElem = deepcopy(population[population.index(minScores)])
             print("{}, {}".format(self.bestScore, sum(self.bestElem)))
 
             self.axis1.clear()
@@ -305,20 +312,39 @@ class TFM_Application():
             self.axis1.set_xlim(0, len(self.bestElem)); self.axis1.set_ylim(0,1)
             self.canvas2.draw()
 
-        print(scores)
+        #print(scores)
 
 
 
     def createPopulation(self, shape):
         pops = []
         print("Creating population...", end='', flush=True)
-        while (len(pops) < shape):
-            candidate = np.random.rand(1, shape)*2 - 1
+        while (len(pops) < 15):
+            candidate = self.createSubject(shape)
             if (self.v2_score(candidate[0], self.vehicles_db["Tesla Model X LR"]["Cons"]) != -1):
-                pops.append(candidate)
+                pops.append(candidate[0])
                 print(" {}".format(len(pops)), end='', flush=True)
         print("")
         return pops
+    
+    def createParallelPopulation(self, shape):
+        pops = []
+        self.pool = mp.Pool(mp.cpu_count()-1)
+        print("Creating population...", end='', flush=True)
+        while (len(pops) < 15):
+            createSubjectsS=partial(v2_create_subjects_par, shape=shape, alts=self.alts, consumption=self.vehicles_db["Tesla Model X LR"]["Cons"], real_chunk_sizes=self.real_chunk_sizes, cruise=self.cruise, road_speeds=self.road_speeds)
+            candidates = self.pool.map(createSubjectsS,list(range(20*mp.cpu_count()-1)))
+            for elem in candidates:
+                if (elem[0] != -1):
+                    pops.append(elem[1])
+                    print(" {}".format(len(pops)), end='', flush=True)
+        print("")
+        self.pool.close()
+        return pops
+
+    def createSubject(self, shape):
+        # Creation of individual between [0.5, 0.5]
+        return np.random.rand(1, shape) - 0.5
 
     def obtainScores(self, population, consumptions):
         scores = []
@@ -378,7 +404,7 @@ class TFM_Application():
             #print(profile)
             return -1
 
-        return cons
+        return cons[0]
     
     # In this function, it has to be checked different facts:
     #   - In any moment the v1 speed is higher than the road limit.
@@ -409,7 +435,7 @@ class TFM_Application():
                 population[pos][i] = np.random.rand()
 
 def main():
-    my_app = TFM_Application(width=875, height=512)
+    my_app = TFM_Application(width=800, height=512)
     return 0
 
 
