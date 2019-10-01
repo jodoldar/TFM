@@ -1,0 +1,278 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%	    CARGA DE LA CLASE DOCUMENT
+%            
+% Las opciones permitidas son:
+%   12pt / 11pt (cuerpo de los tipos de letra; no usar 10pt)
+%
+% spanish/english (lengua principal del trabajo)
+%
+% french/italian/german... (si necesitáis usar alguna otra lengua)
+%
+% listoffigures	(El documento incluye un índice de figuras)
+% listoftables  (El documento incluye un índice de tablas)
+% listofquadres (El documento incluye un índice de cuadros)
+% listofalgorithms (El documento incluye un índice de algoritmos)
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[11pt,spanish,listoffigures,listoftables]{tfgetsinf}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%     CODIFICACIÓN DEL FICHERO FUENTE               %
+%                                                   %
+% windows utiliza normalmente 'ansinew'             %
+% con linux es posible que sea 'latin1' o 'latin9'  %
+% Pero lo mas recomendable es utilizar utf8         %
+% (si vuestro editor lo permite)              	    %
+%                                              	    % 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\usepackage[utf8]{inputenc} 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%       OTROS PAQUETES I DEFINICIONES     %
+%                                         %
+% Cargar aquí los paquetes que necesitéis %
+% i declarad los comandos y entornos  	  %
+% (esta sección puede estar vacía)     	  %
+%										  %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\usepackage{listings}
+\usepackage{pgfgantt}
+\usepackage{lscape}
+\usepackage{subcaption}
+\usepackage{tabularx}
+%\usepackage{algpseudocode}
+\usepackage{biblatex}
+\usepackage{csquotes}
+\addbibresource{bibliograf.bib}
+
+\colorlet{punct}{red!60!black}
+\definecolor{background}{HTML}{EEEEEE}
+\definecolor{delim}{RGB}{20,105,176}
+\colorlet{numb}{magenta!60!black}
+\lstdefinelanguage{json}{
+    basicstyle=\normalfont\ttfamily\scriptsize,
+    numbers=left,
+    numberstyle=\scriptsize,
+    stepnumber=1,
+    numbersep=8pt,
+    showstringspaces=false,
+    breaklines=true,
+    frame=lines,
+    backgroundcolor=\color{background},
+    literate=
+     *{0}{{{\color{numb}0}}}{1}
+      {1}{{{\color{numb}1}}}{1}
+      {2}{{{\color{numb}2}}}{1}
+      {3}{{{\color{numb}3}}}{1}
+      {4}{{{\color{numb}4}}}{1}
+      {5}{{{\color{numb}5}}}{1}
+      {6}{{{\color{numb}6}}}{1}
+      {7}{{{\color{numb}7}}}{1}
+      {8}{{{\color{numb}8}}}{1}
+      {9}{{{\color{numb}9}}}{1}
+      {:}{{{\color{punct}{:}}}}{1}
+      {,}{{{\color{punct}{,}}}}{1}
+      {\{}{{{\color{delim}{\{}}}}{1}
+      {\}}{{{\color{delim}{\}}}}}{1}
+      {[}{{{\color{delim}{[}}}}{1}
+      {]}{{{\color{delim}{]}}}}{1},
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%           DATOS DEL TRABAJO             %
+%                                         %
+% titulo, alumno, tutor y curso académico %
+%										  %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\title{Optimización de mapas de consumo de combustible en vehículos eléctricos.}
+\author{Josep Vicent Dols Dart}
+\tutor{Antonio Garrido Tejero}
+\curs{2019-2020}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%               PALABRAS CLAVE            %
+%                                         %
+% Independientemente de la lengua del     %
+% trabajo, se han de añadir las palabras  %
+% clave y el resumen en los tres idiomas  %
+%										  %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\keywords{cotxe, electric, batería, estimació, ruta} 		% Palabras clave (en valenciano) 
+         {coche, eléctrico, batería, estimación, ruta}      % Palabras clave (en castellano)
+         {car, electrical, battery, estimate, route}        % Palabras clave (en ingles)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%           INICIO DEL DOCUMENTO          %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+	\lstset{language=Python, frame=none}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% RESÚMENES DEL TFM EN CASTELLANO Y INGLES %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{abstract}[spanish]
+
+\end{abstract}
+\begin{abstract}[english]
+
+\end{abstract}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%       CONTENIDO DEL TRABAJO             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\mainmatter
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%           INTRODUCCIÓN				  %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Introducción}
+Gracias a los avances tecnológicos que se están produciendo en la actualidad en diferentes ámbitos, como pudieran ser el diseño de baterías con mayor capacidad o las mejoras en el campo de la automoción de elementos relacionados con el confort y seguridad de los pasajeros, este sector está evolucionando hacia una nueva forma de movilidad, basado actualmente en vehículos híbridos, y previsiblemente en un futuro cercano, en vehículos eléctricos.
+
+Uno de los principales problemas que existen dentro del ámbito de los vehículos eléctricos es la capacidad actual de las baterías que se usan en los mismos, las cuales están aún en proceso de evolución tecnológica, lo que se traduce en los casos reales, en que la autonomía de los vehículos no es aún equiparable a la de los vehículos de combustión tradicionales o híbridos.
+
+\section{Motivación}
+Teniendo en cuenta las limitaciones y el estado actual de estos vehículos eléctricos, un punto importante a considerar es la optimización del estilo de conducción dada un ruta. Técnicamente, este tipo de cálculos conlleva una gran cantidad de recursos computacionales asociados, especialmente si lo que se busca conseguir es la ruta óptima.
+
+En este caso, lo que se busca conseguir es el cálculo de una ruta que sea buena, pero sin la necesidad de que sea la óptima. Para conseguir esto, se busca utilizar algoritmos genéticos, ya que estos proporcionan un gran rango de posibilidades y en un campo con mucha flexibilidad a la hora de poder alcanzar unos resultados válidos y con mucha facilidad para adaptarse a los requisitos del problema.
+
+\section{Objetivos del proyecto}
+El objetivo principal de este proyecto es el desarrollo de una aplicación capaz de analizar una ruta dada por un punto de origen y un punto de destino introducidos por el usuario y dar como resultado de salida al usuario una serie de puntos indicando en cada uno de ellos la aceleración o frenada que tiene que aplicar un vehículo para seguir la mejor ruta posible a realizar.
+
+Dentro de ese objetivo global, hay una serie de objetivos a cumplir durante el desarrollo para garantizar una funcionalidad básica dentro de la propia aplicación.
+\begin{itemize}
+    \item Crear diferentes perfiles de optimización; principalmente, uno basado en la optimización temporal de la ruta, y otro basado en la optimización de los recursos (capacidad de carga en este caso).
+    \item Permitir aplicar todo el proceso de optimización con diferentes vehículos, y en caso especifico, con diferentes cargas en un mismo vehículo.
+    \item Permitir también realizar el proceso de simulación con diferentes condiciones climáticas.
+\end{itemize}
+ 
+\section{Estructura}
+En cuanto a la estructura y distribución del proyecto, dada la naturaleza del mismo y el uso de algoritmos genéticos para la resolución del problema, este se divide en dos bloques principales.
+
+El primer bloque consiste en la definición y explicación de la aplicación que se va a crear, del proceso seguido y de las validaciones realizadas para comprobar que los datos que se introducen en la misma y que se van a utilizar en el proceso de simulación son válidos y correctos.
+
+En cuanto al segundo bloque, este se basa en las pruebas de ajuste, o \textit{tuning}, a realizar sobre el modelo del algoritmo genético y las diferentes funciones de coste utilizadas para obtener los resultados esperados. Al final de este bloque, se encontrarán todos los resultados obtenidos durante el proceso, junto a una comparación de los mismos.
+
+\chapter{Estado del arte}
+En cuanto al estado del arte relacionado con este proyecto, existen diferentes aproximaciones dependiendo del aspecto a valorar. Por un lado se encuentra el campo relacionado con la automoción, y de forma más específica con los vehículos eléctricos. De otro lado, también se encuentra el campo relacionado con las técnicas utilizadas para resolver el problema, que en este caso se trata de un algoritmo genético.
+\newpage
+\section{Crítica}
+
+\section{Propuesta}
+
+\chapter{Análisis del problema}
+
+\section{Identificación de posibles soluciones}
+
+\section{Solución propuesta}
+
+\chapter{Diseño}
+\section{Arquitectura del sistema}
+
+\section{Diseño detallado}
+
+\section{Tecnología utilizada}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   CAPÍTULOS (tantos como haga falta)    %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Desarrollo}
+\section{Obtención de los datos}
+Como ya se ha mencionado anteriormente, la herramienta a partir de la cual se han ido obteniendo los datos para realizar las estimaciones se trata de Graphhopper. Esta página web ofrece un servicio principal similar al ofrecido por otras páginas como Google Maps o Bing Maps; sin embargo, la utilidad real de esta se basa en el uso de la API (\textit{Application Programming Interface}) que dispone, en especial de la \textit{Routing API}.
+
+A partir de una llamada a dicha API, que se detalla a continuación, es posible obtener la ruta que debería de seguir un coche para llegar desde un punto A, marcado por sus coordenadas, hasta un punto B, también marcado por sus coordenadas. Esta ruta viene enmarcada dentro de un objeto JSON, donde entre otros elementos, se encuentra la información de la distancia total de la ruta, una estimación de tiempo y algunos otros elementos de utilidad para la posible representación gráfica de la ruta.
+
+En cuanto a la propia ruta en si, esta viene marcada por una lista de elementos (\verb|points|), donde cada elemento se corresponde con una coordenada, incluyendo esta su latitud, longitud y altitud sobre el nivel del mar. Es a partir de este tercer campo desde donde se obtiene el perfil de la ruta a procesar. Adicionalmente, se obtienen las listas \verb|max_speed| y \verb|road_class|, donde se indica la velocidad máxima a aplicar en los segmentos que hay entre los dos puntos que se indican de la lista de puntos, de la misma forma que se indica el tipo de carretera. Así, es posible estimar para todos los segmentos el límite a seguir, bien establecido directamente o bien inferido del tipo de carretera a utilizar.
+
+A continuación se muestra la respuesta obtenida a partir de la siguiente petición, donde se le indican el punto de origen y destino, el tipo de vehículo, la clave de la API y como elementos a incluir adicionales, la altitud de los puntos, la velocidad máxima y los tipos de carreteras:
+\begin{verbatim}
+GET https://graphhopper.com/api/1/route?point=39.462160,-0.324177&point=39.
+441699,-0.595555&vehicle=car&locale=es&elevation=true&instructions=false&po
+ints_encoded=false&key=dd2e8e1b-5c27-42e4-8e54-a9f4788fdded&details=max_spe
+ed&details=road_class
+\end{verbatim}
+\begin{lstlisting}[language=json]
+{
+    "hints": {...},
+    "info": {
+        "copyrights": [ ... ],
+        "took": 6
+    },
+    "paths": [
+        {
+            "distance": 34110.374,
+            "weight": 2547.098739,
+            "time": 2035351,
+            "transfers": 0,
+            "points_encoded": false,
+            "bbox": [-0.612474, 39.436952, -0.324038, 39.481743],
+            "points": {
+                "type": "LineString",
+                "coordinates": [
+                    [-0.324179, 39.462164, 1],
+                    [-0.324289, 39.462153, 0.6],
+                            ...
+                    [-0.595565, 39.44166, 147.42]
+                ]
+            },
+            "legs": [],
+            "details": {
+                "max_speed": [
+                    [0, 58, -1],
+                    [58, 60, 50],
+                        ...
+                    [339, 371, -1]
+                ],
+                "road_class": [
+                    [0, 8, "residential"],
+                    [8, 16, "tertiary"],
+                            ...
+                    [339, 371, "residential"]
+                ]
+            },
+            "ascend": 290.8469420671463,
+            "descend": 144.42344200611115
+        }
+    ]
+}
+\end{lstlisting}
+
+\section{Modelo de consumo del vehículo}
+Para poder realizar los diferentes cálculos y la simulación de una ruta propuesta, es necesario disponer de un modelo capaz de realizar una estimación lo más aproximada posible del consumo de un vehículo real.
+\chapter{Implantación}
+
+\chapter{Pruebas}
+
+\chapter{Conclusión}
+
+
+\section{Opciones futuras de líneas de desarrollo}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%               BIBLIOGRAFÍA              %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\nocite{*}
+\addcontentsline{toc}{chapter}{Bibliografía}
+\printbibliography
+
+%\begin{thebibliography}{10}
+%\end{thebibliography}
+\cleardoublepage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%         APÉNDICES  (Si los hay)         %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\APPENDIX
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%               OTROS  APÉNDICES          %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Glosario}
+
+\end{document}
