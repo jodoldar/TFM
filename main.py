@@ -12,6 +12,7 @@ from matplotlib.figure import Figure
 
 import multiprocessing as mp
 from functools import partial
+import asyncio
 
 import time
 import json
@@ -43,13 +44,13 @@ class TFM_Application():
         self.origin = StringVar(); self.origin.set("39.462160,-0.324177")
         self.destination = StringVar(); self.destination.set("39.441699,-0.595555")
         self.figure = Figure(figsize= ((width-190)/100, 3.3), dpi=100)
-        self.figure2 = Figure(figsize= ((width-190)/100, 0.15), dpi=100)
+        # self.figure2 = Figure(figsize= ((width-190)/100, 0.15), dpi=100)
         self.axis0 = self.figure.add_axes((0.01, 0.02, 0.98, 0.98), frameon=True)
-        self.axis1 = self.figure2.add_axes((0.01, 0.04, 0.98, 0.95), frameon=True)
+        # self.axis1 = self.figure.add_axes((0.01, 0.24, 0.08, 0.95), frameon=True)
         self.axis0.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
-        self.axis1.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
+        # self.axis1.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
         self.axis0.tick_params(axis='y', which='both', left=False, right=False, labelleft=False)
-        self.axis1.tick_params(axis='y', which='both', left=False, right=False, labelleft=False)
+        # self.axis1.tick_params(axis='y', which='both', left=False, right=False, labelleft=False)
         
         # Initialization of the window
         self.root.geometry("{}x{}".format(width, height))
@@ -107,9 +108,9 @@ class TFM_Application():
         self.canvas.draw()
 
         # Canvas 2
-        self.canvas2 = FigureCanvasTkAgg(self.figure2, master=self.centerFrame)
-        self.canvas2.get_tk_widget().grid(column=0, row=5, sticky="nsew")
-        self.canvas2.draw()
+        # self.canvas2 = FigureCanvasTkAgg(self.figure2, master=self.centerFrame)
+        # self.canvas2.get_tk_widget().grid(column=0, row=5, sticky="nsew")
+        # self.canvas2.draw()
 
         toolbarFrame = Frame(self.centerFrame)
         toolbarFrame.grid()
@@ -178,7 +179,7 @@ class TFM_Application():
             else:
                 inclination.append(0)
         inclination.append(0)
-        neutro = scipy.zeros(len(inclination))
+        self.neutro = scipy.zeros(len(inclination))
 
         self.x_axis = np.arange(0,len(altitudes),1)
         np_alts = np.array(inclination)
@@ -210,13 +211,13 @@ class TFM_Application():
 
         new_inc = np.sum(np_alts.reshape(-1,divisor), axis=1)
         #print(new_inc)
-        sampled_inc = np.repeat(new_inc, divisor)
+        self.sampled_inc = np.repeat(new_inc, divisor)
         #print(sampled_inc)
 
         #self.axis0.plot(altitudes, 'gx')
         self.axis0.fill_between(self.x_axis, altitudes, color='blue')
-        self.axis0.fill_between(self.x_axis, altitudes, where=sampled_inc<neutro, color='green')
-        self.axis0.fill_between(self.x_axis, altitudes, where=sampled_inc>neutro, color='red')
+        self.axis0.fill_between(self.x_axis, altitudes, where=self.sampled_inc<self.neutro, color='green')
+        self.axis0.fill_between(self.x_axis, altitudes, where=self.sampled_inc>self.neutro, color='red')
         self.axis0.set_xlim(0, len(altitudes)); self.axis0.set_ylim(0,max(altitudes))
         self.axis0.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
         self.axis0.tick_params(axis='y', which='both', left=False, right=False, labelleft=False)
@@ -308,10 +309,24 @@ class TFM_Application():
                 self.bestElem = deepcopy(population[scores.index(minScores)])
             print("{}, {}".format(self.bestScore, sum(self.bestElem)))
 
-            self.axis1.clear()
-            self.axis1.plot(self.x_axis, self.bestElem)
-            self.axis1.set_xlim(0, len(self.bestElem)); self.axis1.set_ylim(0,1)
-            self.canvas2.draw()
+
+            # Replot each iteration the original graphic w/ the best elem, scaled to adapt in the Y axis.
+            self.axis0.clear()
+
+
+            self.axis0.fill_between(self.x_axis, self.alts, color='blue')
+            self.axis0.fill_between(self.x_axis, self.alts, where=self.sampled_inc<self.neutro, color='green')
+            self.axis0.fill_between(self.x_axis, self.alts, where=self.sampled_inc>self.neutro, color='red')
+            self.axis0.set_xlim(0, len(self.alts)); self.axis0.set_ylim(0,max(self.alts))
+            self.axis0.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
+            self.axis0.tick_params(axis='y', which='both', left=False, right=False, labelleft=False)
+
+            #self.axis1.clear()
+            y_avg = (max(self.alts) - min(self.alts)) / 2
+            self.axis0.plot(self.x_axis, list(map(lambda x: x * (y_avg/2) + y_avg, self.bestElem)), 'y')
+            self.axis0.hlines(y_avg, min(self.x_axis), max(self.x_axis),'k')
+            #self.axis1.set_xlim(0, len(self.bestElem)); self.axis1.set_ylim(0,1)
+            self.canvas.draw()
 
         #print(scores)
 
