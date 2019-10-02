@@ -279,7 +279,7 @@ class TFM_Application():
         self.bestElem = deepcopy(population[scores.index(minScores)])
         print("Best score before start is {}.".format(self.bestScore))
 
-        num_iterations = 30
+        num_iterations = 50
         is_even = len(population)%2 == 0
         print("Is the population even? {}".format(is_even))
 
@@ -294,7 +294,10 @@ class TFM_Application():
                     self.mixPopulation(internal_it, population)
                 self.newPopulation.append(population[-1])
 
-            self.mutate(int(np.random.rand()*len(self.newPopulation)), self.newPopulation)
+            # self.mutate_v2(int(np.random.rand()*len(self.newPopulation)), self.newPopulation)
+            for i in range(0, len(self.newPopulation)):
+                if (np.random.rand() > 0.1):
+                    self.mutate_v2(i, self.newPopulation)
 
             population = deepcopy(self.newPopulation)
             self.newPopulation = []
@@ -437,7 +440,7 @@ class TFM_Application():
         l2 = population[pos+1]
 
         for i in range(0, len(l1)):
-            if (np.random.rand() > 0.5):
+            if (np.random.rand() > 0.9):
                 aux = l1[i]
                 l1[i] = l2[i]
                 l2[i] = aux
@@ -449,6 +452,20 @@ class TFM_Application():
         for i in range(0, len(population[pos])):
             if (np.random.rand() > 0.4):
                 population[pos][i] = np.random.rand()
+
+    def mutate_v2(self, pos, population):
+        for i in range(0, len(population[pos])):
+            # First decide if we increase or decrease the accel.
+            if (np.random.rand() > 0.5):
+                fFactor = 1 # Increase accel.
+            else:
+                fFactor = -1 # Decrease accel.
+
+            # Apply the mutation if applies.
+            if (np.random.rand() > 0.6):
+                population[pos][i] = clamp(population[pos][i] + (0.1*fFactor), -1, 1)
+
+def clamp(n, minn, maxn): return min(max(n, minn), maxn) 
 
 def main():
     my_app = TFM_Application(width=800, height=512)
