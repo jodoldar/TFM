@@ -28,13 +28,10 @@ from pprint import pprint
 
 from chunk import Chunk
 from par_lib import v2_create_subjects_par, v2_create_subject_par, v2_score_par, v2_check_valid_par
+from veh_db import db
 
 class TFM_Application():
-    vehicles_db = {"Tesla Model X LR": {"Capacity": 100, "Cons": [14.5, 28.8]},
-                   "Tesla Model S LR": {"Capacity": 100, "Cons": [12.7, 25.9]},
-                   "Tesla Model 3 LR4": {"Capacity":75, "Cons": [10.8, 21.8]},
-                   "Hyundai Kona": {"Capacity": 67, "Cons": [10.8, 22.9]},
-                   "Jaguar I-Pace": {"Capacity": 90, "Cons": [15.3, 31.4]}}
+    vehicles_db = db
     
     bestScore = -1; bestElem = None
 
