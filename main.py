@@ -139,7 +139,7 @@ class TFM_Application():
 
     def getRouteProfile(self):
         api_instance = swagger_client.RoutingApi()
-        key = '6b48ad3a-d56f-4fa5-8320-d62e01fca263'
+        key = 'e8a518c2-0c42-4102-9ad2-2f8a79bdb744'
         pointA = self.origin.get()
         pointB = self.destination.get()
         locale = 'es'
@@ -282,6 +282,11 @@ class TFM_Application():
 
         self.newPopulation = []
         for it in range(0, num_iterations):
+
+            ###################################################################
+            ##                      MIX POPULATION                           ##
+            ###################################################################
+
             shuffle(population)
             if (is_even):
                 for internal_it in range(0,len(population), 2):
@@ -291,10 +296,42 @@ class TFM_Application():
                     self.mixPopulation(internal_it, population)
                 self.newPopulation.append(population[-1])
 
+            ###################################################################
+            ##                          APPLY MUTATION                       ##
+            ###################################################################
+
             # self.mutate_v2(int(np.random.rand()*len(self.newPopulation)), self.newPopulation)
             for i in range(0, len(self.newPopulation)):
                 if (np.random.rand() > 0.1):
                     self.mutate_v2(i, self.newPopulation)
+
+            ###################################################################
+            ##                  CORRECTION OF INDIVIDUALS (REPLACE)          ##
+            ###################################################################
+            #print("Positions ", end="")
+            #for i in range(0, len(self.newPopulation)):
+            #    if self.v2_score(self.newPopulation[i], self.vehicles_db["Tesla Model X LR"]["Cons"]) < 0:
+            #        # Correction time
+            #        temp_pop = self.createParallelPopulation(len(self.alts), 1, False)
+            #        self.newPopulation[i] = temp_pop[0]
+            #        print("{} ".format(i), end="")
+            #print(" corrected.")
+
+            ###################################################################
+            ##                  CORRECTION OF INDIVIDUALS (CORRECT)          ##
+            ###################################################################
+            print("Positions ", end="")
+            for i in range(0, len(self.newPopulation)):
+                if self.v2_score(self.newPopulation[i], self.vehicles_db["Tesla Model X LR"]["Cons"]) < 0:
+                    # Correction time
+                    temp_pop = self.v2_correction(self.newPopulation[i],self.vehicles_db["Tesla Model X LR"]["Cons"])
+                    self.newPopulation[i] = temp_pop
+                    print("{} ".format(i), end="")
+            print(" corrected.")
+
+            ###################################################################
+            ##                         GET BEST SCORE                        ##
+            ###################################################################
 
             population = deepcopy(self.newPopulation)
             self.newPopulation = []
@@ -309,10 +346,12 @@ class TFM_Application():
                 self.bestElem = deepcopy(population[scores.index(minScores)])
             print("{}, {}".format(self.bestScore, sum(self.bestElem)))
 
+            ###################################################################
+            ##                      REDRAW EACH ITERATION                    ##
+            ###################################################################
 
             # Replot each iteration the original graphic w/ the best elem, scaled to adapt in the Y axis.
             self.axis0.clear()
-
 
             self.axis0.fill_between(self.x_axis, self.alts, color='blue')
             self.axis0.fill_between(self.x_axis, self.alts, where=self.sampled_inc<self.neutro, color='green')
@@ -328,6 +367,8 @@ class TFM_Application():
             #self.axis1.set_xlim(0, len(self.bestElem)); self.axis1.set_ylim(0,1)
             self.canvas.draw()
 
+            ###################################################################
+
         #print(scores)
 
 
@@ -342,25 +383,30 @@ class TFM_Application():
                 print(" {}".format(len(pops)), end='', flush=True)
         print("")
         return pops
-    
-    def createParallelPopulation(self, shape):
+
+    def createParallelPopulation(self, shape, num_of_elems=30, verbose=True):
         pops = []
         self.pool = mp.Pool(mp.cpu_count()-1)
-        print("Creating population...", end='', flush=True)
-        while (len(pops) < 30):
+        if verbose:
+            print("Creating population...", end='', flush=True)
+        while (len(pops) < num_of_elems):
             createSubjectsS=partial(v2_create_subjects_par, shape=shape, alts=self.alts, consumption=self.vehicles_db["Tesla Model X LR"]["Cons"], real_chunk_sizes=self.real_chunk_sizes, cruise=self.cruise, road_speeds=self.road_speeds)
             candidates = self.pool.map(createSubjectsS,list(range(30*mp.cpu_count()-1)))
             for elem in candidates:
                 if (elem[0] != -1):
                     pops.append(elem[1])
-                    print(" {}".format(len(pops)), end='', flush=True)
-        print("")
+                    if verbose:
+                        print(" {}".format(len(pops)), end='', flush=True)
+        if verbose:
+            print("")
         self.pool.close()
         return pops
 
     def createSubject(self, shape):
         # Creation of individual between [0.5, 0.5]
         return np.random.rand(1, shape) - 0.5
+
+
 
     def obtainScores(self, population, consumptions):
         scores = []
@@ -379,7 +425,7 @@ class TFM_Application():
             scores.append(self.v2_score(elem, consumptions))
         
         return scores
-    
+
     def v2_score(self, profile, consumptions):
         chunks = []
         cons = 0
@@ -421,7 +467,52 @@ class TFM_Application():
             return -1
 
         return cons[0]
-    
+
+    def v2_correction(self, profile, consumptions):
+        
+        attempts = 0
+        new_profile = deepcopy(profile)
+
+        while attempts < 50:
+            chunks = []
+            temp_profile = deepcopy(new_profile)
+            
+            for i in range(0, len(self.alts)-1):
+                lcl_slope = ((self.alts[i+1] - self.alts[i])/self.real_chunk_sizes[i]) * 100
+                
+                if (i == 0):
+                    chunks.append(Chunk(0, temp_profile[i], lcl_slope))
+                else:
+                    chunks.append(Chunk(chunks[-1].v1, temp_profile[i], lcl_slope))
+
+                # Once the chunk is created, the v1 speed is calculated
+                adapt_cruise_accel = 0
+                initial_spd = chunks[-1].v0
+                if initial_spd < 20:
+                    adapt_cruise_accel = self.cruise['A']
+                elif initial_spd < 40:
+                    adapt_cruise_accel = self.cruise['B']
+                elif initial_spd < 70:
+                    adapt_cruise_accel = self.cruise['C']
+                elif initial_spd < 100:
+                    adapt_cruise_accel = self.cruise['D']
+                else:
+                    adapt_cruise_accel = self.cruise['E']
+                adapt_cruise_accel = np.interp(adapt_cruise_accel, consumptions, [0,1])
+
+                chunks[-1].calculate_v1(self.real_chunk_sizes[i], adapt_cruise_accel, self.road_speeds[i])
+
+                if (chunks[-1].v1 > self.road_speeds[i]):
+                    new_profile[i] = temp_profile[i] - 0.1
+
+
+            if (self.v2_checkValid(chunks)):
+                break
+
+            attempts += 1
+
+        return new_profile
+
     # In this function, it has to be checked different facts:
     #   - In any moment the v1 speed is higher than the road limit.
     def v2_checkValid(self, chunks):
@@ -444,6 +535,7 @@ class TFM_Application():
 
         self.newPopulation.append(l1)
         self.newPopulation.append(l2)
+
 
     def mutate(self, pos, population):
         for i in range(0, len(population[pos])):
