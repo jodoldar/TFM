@@ -7,7 +7,8 @@ db = {
         "MildCons": [14.5, 18.3, 22.6], #KWh/100km
         "Range": 460, #km
         "Power": 350, #kW
-        "Accel": 4.6 #sec 0-100km/h
+        "Accel": 4.6, #sec 0-100km/h
+        "Weight": 2459 #Kg
     },
     
     
@@ -18,7 +19,8 @@ db = {
         "MildCons": [12.7, 15.8, 19.4], #KWh/100km
         "Range": 525, #km
         "Power": 350, #kW
-        "Accel": 3.8 #sec 0-100km/h
+        "Accel": 3.8, #sec 0-100km/h
+        "Weight": 2215 #Kg
     },
     
     
@@ -29,7 +31,8 @@ db = {
         "MildCons": [10.8, 13.5, 16.6], #KWh/100km
         "Range": 475, #km
         "Power": 258, #kW
-        "Accel": 4.6 #sec 0-100km/h
+        "Accel": 4.6, #sec 0-100km/h
+        "Weight": 1847 #Kg
     },
     
     
@@ -40,7 +43,8 @@ db = {
         "MildCons": [10.8, 13.9, 17.5], #KWh/100km
         "Range": 400, #km
         "Power": 150, #kW
-        "Accel": 7.6 #sec 0-100km/h
+        "Accel": 7.6, #sec 0-100km/h
+        "Weight": 1685 #Kg
     },
     
     
@@ -51,7 +55,8 @@ db = {
         "MildCons": [15.3, 19.7, 24.9], #KWh/100km
         "Range": 380, #km
         "Power": 294, #kW
-        "Accel": 4.8 #sec 0-100km/h
+        "Accel": 4.8, #sec 0-100km/h
+        "Weight": 2133 #Kg
     }
 
 

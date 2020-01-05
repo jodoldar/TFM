@@ -39,7 +39,7 @@ for velocity in [1,5,10,15,20,25,30]: # Velocity in m/s
     for i in np.arange(0, accel, 0.1):
         p_wheel = vehicle_mass * i
 
-        r_roll = vehicle_mass * g_const * math.cos(ground) * (1.75 / 1000)*(0.0328 * velocity * 4.575)
+        r_roll = vehicle_mass * g_const * math.cos(ground) * (1.75 / 1000)*(0.0328 * velocity + 4.575)
 
         r_aer = 0.5 * 1.2256 * 2.3316 * 0.28 * math.pow(velocity,2)
 

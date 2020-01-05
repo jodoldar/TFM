@@ -308,26 +308,26 @@ class TFM_Application():
             ###################################################################
             ##                  CORRECTION OF INDIVIDUALS (REPLACE)          ##
             ###################################################################
-            #print("Positions ", end="")
-            #for i in range(0, len(self.newPopulation)):
-            #    if self.v2_score(self.newPopulation[i], self.vehicles_db["Tesla Model X LR"]["Cons"]) < 0:
-            #        # Correction time
-            #        temp_pop = self.createParallelPopulation(len(self.alts), 1, False)
-            #        self.newPopulation[i] = temp_pop[0]
-            #        print("{} ".format(i), end="")
-            #print(" corrected.")
-
-            ###################################################################
-            ##                  CORRECTION OF INDIVIDUALS (CORRECT)          ##
-            ###################################################################
             print("Positions ", end="")
             for i in range(0, len(self.newPopulation)):
                 if self.v2_score(self.newPopulation[i], self.vehicles_db["Tesla Model X LR"]["Cons"]) < 0:
                     # Correction time
-                    temp_pop = self.v2_correction(self.newPopulation[i],self.vehicles_db["Tesla Model X LR"]["Cons"])
-                    self.newPopulation[i] = temp_pop
+                    temp_pop = self.createParallelPopulation(len(self.alts), 1, False)
+                    self.newPopulation[i] = temp_pop[0]
                     print("{} ".format(i), end="")
             print(" corrected.")
+
+            ###################################################################
+            ##                  CORRECTION OF INDIVIDUALS (CORRECT)          ##
+            ###################################################################
+            #print("Positions ", end="")
+            #for i in range(0, len(self.newPopulation)):
+            #    if self.v2_score(self.newPopulation[i], self.vehicles_db["Tesla Model X LR"]["Cons"]) < 0:
+            #        # Correction time
+            #        temp_pop = self.v2_correction(self.newPopulation[i],self.vehicles_db["Tesla Model X LR"]["Cons"])
+            #        self.newPopulation[i] = temp_pop
+            #        print("{} ".format(i), end="")
+            #print(" corrected.")
 
             ###################################################################
             ##                         GET BEST SCORE                        ##
@@ -455,10 +455,12 @@ class TFM_Application():
             adapt_cruise_accel = np.interp(adapt_cruise_accel, consumptions, [0,1])
 
             chunks[-1].calculate_v1(self.real_chunk_sizes[i], adapt_cruise_accel, self.road_speeds[i])
+            chunks[-1].calculate_CPEM_kwh(self.vehicles_db["Tesla Model X LR"])
 
             # In the case there is a negative acceleration (i.e the car is braking), there is no consumption
             if (chunks[-1].accel > 0):
-                cons += np.interp(chunks[-1].accel, [0,1], consumptions) / chunks[-1].est_time_s
+                #v2 cons += np.interp(chunks[-1].accel, [0,1], consumptions) / chunks[-1].est_time_s
+                cons += chunks[-1].est_cons
 
             #print("Chunk {}. v0-> {}, v1-> {}, accel-> {}[{}], slp: {}[{}]".format(i, chunks[-1].v0, chunks[-1].v1, chunks[-1].accel, adapt_cruise_accel, chunks[-1].slope, self.real_chunk_sizes[i]))
         
@@ -528,7 +530,7 @@ class TFM_Application():
         l2 = population[pos+1]
 
         for i in range(0, len(l1)):
-            if (np.random.rand() > 0.9):
+            if (np.random.rand() > 0.95):
                 aux = l1[i]
                 l1[i] = l2[i]
                 l2[i] = aux
@@ -551,7 +553,7 @@ class TFM_Application():
                 fFactor = -1 # Decrease accel.
 
             # Apply the mutation if applies.
-            if (np.random.rand() > 0.6):
+            if (np.random.rand() > 0.8):
                 population[pos][i] = clamp(population[pos][i] + (0.1*fFactor), -1, 1)
 
 def clamp(n, minn, maxn): return min(max(n, minn), maxn) 
