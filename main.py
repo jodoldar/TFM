@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
-from tkinter import Tk, StringVar, Frame, Text, END
+from tkinter import Tk, StringVar, Frame, Text, END, Scrollbar
 from tkinter import ttk
 
 import matplotlib
@@ -30,7 +30,7 @@ from pprint import pprint
 
 from chunk import Chunk
 from par_lib import v2_create_subjects_par, v2_create_subject_par, v2_score_par, v2_check_valid_par
-from veh_db import db
+from veh_db import *
 
 class TFM_Application():
     vehicles_db = db
@@ -40,101 +40,102 @@ class TFM_Application():
     def __init__(self, width=600, height=400):
         self.root = Tk()
 
+        # Default values for UI
         self.origin = StringVar(); self.origin.set("39.462160,-0.324177")
         self.destination = StringVar(); self.destination.set("39.441699,-0.595555")
+        
+
         self.figure = Figure(figsize= ((width-190)/100, 3.3), dpi=100)
-        # self.figure2 = Figure(figsize= ((width-190)/100, 0.15), dpi=100)
-        self.axis0 = self.figure.add_axes((0.01, 0.02, 0.98, 0.98), frameon=True)
-        # self.axis1 = self.figure.add_axes((0.01, 0.24, 0.08, 0.95), frameon=True)
+        self.axis0 = self.figure.add_axes((0.00, 0.01, 0.999, 0.99), frameon=True)
         self.axis0.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
-        # self.axis1.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
         self.axis0.tick_params(axis='y', which='both', left=False, right=False, labelleft=False)
-        # self.axis1.tick_params(axis='y', which='both', left=False, right=False, labelleft=False)
         
         # Initialization of the window
         self.root.geometry("{}x{}".format(width, height))
-        self.root.resizable(width=True, height=False)
+        self.root.resizable(width=False, height=False)
         self.root.title('Route calculator')
 
         self.root.grid_rowconfigure(0, weight=1)
-        self.root.grid_columnconfigure(1, weight=1)
+        self.root.grid_columnconfigure(2, weight=1)
 
         # Left Column
-        self.leftFrame = Frame(self.root, bg='beige', width=80, height=400)
-        self.leftFrame.grid(row=0, column=0, sticky="nsew")
+        self.leftFrame = Frame(self.root, width=80, height=400)
+        self.leftFrame.grid(row=0, column=0, padx=(10,10), sticky='NS', pady=(10,0))
 
         # Center Zone
-        self.centerFrame = Frame(self.root, bg='beige', width=450, height=400)
-        self.centerFrame.grid(row=0, column=1, sticky="nsew")
+        self.centerFrame = Frame(self.root, width=500, height=400)
+        self.centerFrame.grid(row=0, column=1, padx=(10,10), pady=(10,0), sticky='NS')
 
-        # Origin point
+        # Left Column > Origin point
         self.origin_p_lab = ttk.Label(self.leftFrame, text='Origen:')
         self.origin_p = ttk.Entry(self.leftFrame, textvariable=self.origin, width=20)
         self.origin_p_lab.grid(column=0, row=0)
-        self.origin_p.grid(column=0, row=1, sticky="we")
+        self.origin_p.grid(column=0, row=1, sticky="we", pady=(0,5))
 
-        # Detination point
+        # Left Column > Destination point
         self.dest_p_lab = ttk.Label(self.leftFrame, text='Destino: ')
         self.dest_p = ttk.Entry(self.leftFrame, textvariable=self.destination, width=15)
         self.dest_p_lab.grid(column=0, row=2)
-        self.dest_p.grid(column=0, row=3, sticky="we")
+        self.dest_p.grid(column=0, row=3, sticky="we", pady=(0,5))
 
-        # Obtain route from API
+        # Left Column > Vehicle
+        self.vehicle_used_lab = ttk.Label(self.leftFrame, text='Vehículo: ')
+        self.vehicle_used = ttk.Combobox(self.leftFrame, values=list(db.keys()), state='readonly')
+        self.vehicle_used.set(list(db.keys())[0])
+        self.vehicle_used_lab.grid(column=0, row=4)
+        self.vehicle_used.grid(column=0, row=5, pady=(0,5))
+
+        #Left Column > Point Bias
+        self.point_bias_lab = ttk.Label(self.leftFrame, text='Márgen de puntos: ')
+        self.point_bias_cb = ttk.Combobox(self.leftFrame, values=list(point_bias.keys()), state='readonly')
+        self.point_bias_cb.set(list(point_bias.keys())[1])
+        self.point_bias_lab.grid(column=0, row=6)
+        self.point_bias_cb.grid(column=0, row=7, pady=(0,5))
+
+        # Left Column > Obtain route from API
         self.calc_button = ttk.Button(self.leftFrame, text='Obtener ruta', command=self.getRouteProfile)
-        self.calc_button.grid(column=0, row=5, sticky="we")
+        self.calc_button.grid(column=0, row=8, sticky="we")
 
-        # Calculate optimum profile
+        # Left Column > Calculate optimum profile
         self.profile_button = ttk.Button(self.leftFrame, text='Cálculo', command=self.getOptimumProfile)
-        self.profile_button.grid(column=0, row=6, sticky="we")
+        self.profile_button.grid(column=0, row=9, sticky="we")
 
-        # Get Window Information
+        # Center Zone > Get Window Information
         self.button_getInfo = ttk.Button(self.centerFrame, text='Informame',
             command=self.verInfo)
-        self.button_getInfo.grid(column=0, row=0, sticky="ns")
+        self.button_getInfo.grid(column=0, row=0, sticky="ns", pady=(0,5))
 
-        # Exit application
+        # Center Zone > Exit application
         self.button_exit = ttk.Button(self.centerFrame, text='Salir',
             command=self.root.destroy)
-        self.button_exit.grid(column=0, row=1, sticky="ns")
+        self.button_exit.grid(column=0, row=1, sticky="ns", pady=(0,5))
 
-        # TextBox
-        self.text_info = Text(self.centerFrame, width=40, height=5)
-        self.text_info.grid(column=0, row=3, sticky="ns")
+        # Center Zone > TextBox
+        self.tb_Frame = Frame(self.centerFrame, bg='beige', width=70, height=5)
+        self.tb_Frame.grid(row=3, column=0, padx=(10,10), pady=(0,0), sticky='NS')
 
-        # Canvas 1
+        self.tb_scrollbar = Scrollbar(self.tb_Frame)
+        self.tb_scrollbar.grid(row=0, column=1, sticky='NS')
+        self.text_info = Text(self.tb_Frame, width=70, height=5)
+        self.text_info.grid(column=0, row=0, sticky="ns")
+        self.text_info.config(yscrollcommand=self.tb_scrollbar.set)
+        self.tb_scrollbar.config(command=self.text_info.yview)
+
+        # Center Zone > Canvas 1
         self.canvas = FigureCanvasTkAgg(self.figure, master=self.centerFrame)
         self.canvas.get_tk_widget().grid(column=0, row=4,sticky="nsew")
         self.canvas.draw()
 
-        # Canvas 2
-        # self.canvas2 = FigureCanvasTkAgg(self.figure2, master=self.centerFrame)
-        # self.canvas2.get_tk_widget().grid(column=0, row=5, sticky="nsew")
-        # self.canvas2.draw()
-
-        toolbarFrame = Frame(self.centerFrame)
-        toolbarFrame.grid()
-        #self.toolbar = NavigationToolbar2Tk(self.canvas, toolbarFrame)
-        #self.toolbar.grid()
-        #self.toolbar.update()
-
-        self.button_getInfo.focus_set()
+        self.calc_button.focus_set()
 
         self.root.mainloop()
 
     def verInfo(self):
-        self.text_info.delete("1.0", END)
+        self.text_info.yview(END)
 
-        text_info = "Clase de 'raiz': " + self.root.winfo_class() + "\n"
-        text_info += "Resolución y posición: " + self.root.winfo_geometry() + "\n"
-        text_info += "Anchura de ventana: " + str(self.root.winfo_width()) + "\n"
-        text_info += "Altura de ventana: " + str(self.root.winfo_height()) + "\n"
-        text_info += "Pos. Ventanta X: " + str(self.root.winfo_rootx()) + "\n"
-        text_info += "Pos. Ventana Y: " + str(self.root.winfo_rooty()) + "\n"
-        text_info += "Id. de 'raiz': " + str(self.root.winfo_id()) + "\n"
-        text_info += "Nombre objeto: " + self.root.winfo_name() + "\n"
-        text_info += "Gestor ventanas: " + self.root.winfo_manager() + "\n"
-
-        self.text_info.insert("1.0", text_info)
+    def addInfo(self, text):
+        self.text_info.insert(END, text)
+        self.text_info.yview(END)
         
     def calculateRoute(self):
         print("I'm calculating route from {} to {}...".format(self.origin.get(), self.destination.get()))
@@ -152,7 +153,8 @@ class TFM_Application():
 
         coordinates = []
         altitudes = []
-        inclination = []
+
+        self.addInfo("Getting route from {} to {}\n".format(pointA, pointB))
 
         try:
             api_response = api_instance.route_get([pointA,pointB], False, key, locale=locale, vehicle=vehicle, elevation=elevation, instructions=instructions, details=details)
@@ -170,68 +172,52 @@ class TFM_Application():
         text_info += "Nº of alt. coordinates: {}\n".format(len(altitudes))
 
         print("Processing surface...")
-        #for i in range(0, len(altitudes)-1):
-        #    if (altitudes[i+1]-altitudes[i]) > 1.0:
-        #        inclination.append(1)
-        #    elif (altitudes[i+1]-altitudes[i]) < -1.0:
-        #        inclination.append(-1)
-        #    else:
-        #        inclination.append(0)
-        #inclination.append(0)
-        #self.neutro = scipy.zeros(len(inclination))
+        print("Initial number of points: {}".format(len(coordinates)))
 
-        self.x_axis = np.arange(0,len(altitudes),1)
+
+        # PRE-FILTERING BY BIAS
+        filt_ids = []; filt_ids.append(0)
+        filt_coords = []; filt_coords.append(coordinates[0])
+        filt_alts = []; filt_alts.append(altitudes[0])
+        inclination = []; inclination.append(0)
+
+        bias_dist = point_bias[self.point_bias_cb.get()]
+
+        for i in range(1,len(coordinates)-1):
+            if haversine(filt_coords[-1], coordinates[i], unit=Unit.METERS) > bias_dist :
+                filt_ids.append(i)
+                filt_coords.append(coordinates[i])
+                filt_alts.append(altitudes[i])
+                inclination.append(altitudes[i]-filt_alts[-2]) # Check that new altitude is already introduced at this point
+        filt_coords.append(coordinates[-1]); filt_alts.append(altitudes[-1]); inclination.append(altitudes[-1]-filt_alts[-2])
+        print("Pre-Process 1. Points reduced to {}. Bias is {}".format(len(filt_coords), bias_dist))
+
+        self.x_axis = np.arange(0,len(filt_alts),1)
         np_alts = np.array(inclination)
-        self.alts = np.array(altitudes)
+        self.alts = np.array(filt_alts)
         self.chunk_size = api_response.paths[0].distance / len(api_response.paths[0].points.coordinates)
 
         self.real_chunk_sizes = []
         self.real_chunk_sizes.append(0)
-        for i in range(0, len(coordinates)-1):
-            self.real_chunk_sizes.append(self.real_chunk_sizes[-1] + haversine(coordinates[i], coordinates[i+1], unit=Unit.METERS))
+        for i in range(0, len(filt_coords)-1):
+            self.real_chunk_sizes.append(self.real_chunk_sizes[-1] + haversine(filt_coords[i], filt_coords[i+1], unit=Unit.METERS))
         
-        #pyp.plot(self.real_chunk_sizes, self.alts)
-        #pyp.show()
 
-        # Calculate divisor for reshepe
-        ######################################################
-        #divisor = 4; MAX_SUBSAMPLE = 15
-        #full_len = len(np_alts)
-
-        #while (divisor < MAX_SUBSAMPLE):
-        #    if (full_len%divisor == 0):
-        #        break
-        #    divisor += 1
-        
-        #if (divisor == MAX_SUBSAMPLE):
-        #    if (full_len%2 == 0):
-        #        divisor = 2
-        #    else:
-        #        divisor = 1
-        #text_info += "Subsampling set to {}\n".format(divisor)
-        ###################################################
-
-        #new_inc = np.sum(np_alts.reshape(-1,divisor), axis=1)
-        #print(new_inc)
-        #self.sampled_inc = np.repeat(new_inc, divisor)
-        #print(sampled_inc)
-
-        #self.axis0.plot(altitudes, 'gx')
-        self.axis0.fill_between(self.real_chunk_sizes, altitudes, color='blue')
-        #self.axis0.fill_between(self.real_chunk_sizes, altitudes, where=np_alts<self.neutro, color='green')
-        #self.axis0.fill_between(self.real_chunk_sizes, altitudes, where=np_alts>self.neutro, color='red')
-        self.axis0.set_xlim(0, self.real_chunk_sizes[-1]); self.axis0.set_ylim(0,max(altitudes))
+        self.axis0.clear()
+        self.axis0.fill_between(self.real_chunk_sizes, filt_alts, color='blue')
+        self.axis0.fill_between(self.real_chunk_sizes, filt_alts, where=np_alts < -5, color='green')
+        self.axis0.fill_between(self.real_chunk_sizes, filt_alts, where=np_alts > 5, color='red')
+        self.axis0.set_xlim(0, self.real_chunk_sizes[-1]); self.axis0.set_ylim(0,max(filt_alts))
         self.axis0.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
         self.axis0.tick_params(axis='y', which='both', left=False, right=False, labelleft=False)
         self.canvas.draw()
 
-        self.text_info.delete("1.0", END)
-        self.text_info.insert("1.0", text_info)
+        self.addInfo(text_info)
 
         ###################################################
         # Pre-check for the route validity
-        print("{} is greater than {}?".format(self.vehicles_db['Tesla Model X LR']["Capacity"] / self.vehicles_db["Tesla Model X LR"]["Cons"][0], api_response.paths[0].time/3600000))
-        if(self.vehicles_db['Tesla Model X LR']["Capacity"] / self.vehicles_db["Tesla Model X LR"]["Cons"][0] >= api_response.paths[0].time/3600000):
+        print("{} is greater than {}?".format(self.vehicles_db[self.vehicle_used.get()]["Capacity"] / self.vehicles_db[self.vehicle_used.get()]["Cons"][0], api_response.paths[0].time/3600000))
+        if(self.vehicles_db[self.vehicle_used.get()]["Capacity"] / self.vehicles_db[self.vehicle_used.get()]["Cons"][0] >= api_response.paths[0].time/3600000):
             print("Calculating optimum map...")
         else:
             print("The route is not suitable for the selected car.")
@@ -242,11 +228,11 @@ class TFM_Application():
         # Calculate cruise accelerations
         # Cruise[A,B,C,D,E] -> A:[0-20], B:[21-40], C:[41-70], D:[71-100], E:[101-120]
         self.cruise = {}
-        self.cruise['A'] = np.interp(0.15, [0, 1], self.vehicles_db["Tesla Model X LR"]["Cons"])
-        self.cruise['B'] = np.interp(0.20, [0, 1], self.vehicles_db["Tesla Model X LR"]["Cons"])
-        self.cruise['C'] = np.interp(0.25, [0, 1], self.vehicles_db["Tesla Model X LR"]["Cons"])
-        self.cruise['D'] = np.interp(0.35, [0, 1], self.vehicles_db["Tesla Model X LR"]["Cons"])
-        self.cruise['E'] = np.interp(0.50, [0, 1], self.vehicles_db["Tesla Model X LR"]["Cons"])
+        self.cruise['A'] = np.interp(0.15, [0, 1], self.vehicles_db[self.vehicle_used.get()]["Cons"])
+        self.cruise['B'] = np.interp(0.20, [0, 1], self.vehicles_db[self.vehicle_used.get()]["Cons"])
+        self.cruise['C'] = np.interp(0.25, [0, 1], self.vehicles_db[self.vehicle_used.get()]["Cons"])
+        self.cruise['D'] = np.interp(0.35, [0, 1], self.vehicles_db[self.vehicle_used.get()]["Cons"])
+        self.cruise['E'] = np.interp(0.50, [0, 1], self.vehicles_db[self.vehicle_used.get()]["Cons"])
 
         print("Accl. Profile: {}".format(self.cruise.items()))
         print("Roads: {}".format(api_response.paths[0].details['road_class']))
@@ -264,7 +250,8 @@ class TFM_Application():
                 max_speed = 120
             
             for i in range(road_block[0], road_block[1]-1):
-                self.road_speeds[i] = max_speed
+                if i in filt_ids:
+                    self.road_speeds[filt_ids.index(i)] = max_speed
 
     def getOptimumProfile(self):
         ###################################################
