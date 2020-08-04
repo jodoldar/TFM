@@ -1,13 +1,14 @@
 import math
 
 class Chunk:    
-    def __init__(self, v0=0, accel=0, slope=0):
+    def __init__(self, v0=0, accel=0, slope=0, space=1):
         self.v0 = v0
         self.v1 = 0
         self.accel = accel
         self.slope = slope
         self.est_time_s = 0
         self.est_cons = 0
+        self.space = space
     
     def calculate_v1(self, space, cruise_accel, max_speed=120):
         if (self.v0 == 0):

@@ -10,6 +10,8 @@ matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 
+import matplotlib.pyplot as pyp
+
 import multiprocessing as mp
 from functools import partial
 import asyncio
@@ -168,15 +170,15 @@ class TFM_Application():
         text_info += "Nº of alt. coordinates: {}\n".format(len(altitudes))
 
         print("Processing surface...")
-        for i in range(0, len(altitudes)-1):
-            if (altitudes[i+1]-altitudes[i]) > 1.0:
-                inclination.append(1)
-            elif (altitudes[i+1]-altitudes[i]) < -1.0:
-                inclination.append(-1)
-            else:
-                inclination.append(0)
-        inclination.append(0)
-        self.neutro = scipy.zeros(len(inclination))
+        #for i in range(0, len(altitudes)-1):
+        #    if (altitudes[i+1]-altitudes[i]) > 1.0:
+        #        inclination.append(1)
+        #    elif (altitudes[i+1]-altitudes[i]) < -1.0:
+        #        inclination.append(-1)
+        #    else:
+        #        inclination.append(0)
+        #inclination.append(0)
+        #self.neutro = scipy.zeros(len(inclination))
 
         self.x_axis = np.arange(0,len(altitudes),1)
         np_alts = np.array(inclination)
@@ -184,38 +186,41 @@ class TFM_Application():
         self.chunk_size = api_response.paths[0].distance / len(api_response.paths[0].points.coordinates)
 
         self.real_chunk_sizes = []
+        self.real_chunk_sizes.append(0)
         for i in range(0, len(coordinates)-1):
-            self.real_chunk_sizes.append(haversine(coordinates[i], coordinates[i+1], unit=Unit.METERS))
+            self.real_chunk_sizes.append(self.real_chunk_sizes[-1] + haversine(coordinates[i], coordinates[i+1], unit=Unit.METERS))
         
+        #pyp.plot(self.real_chunk_sizes, self.alts)
+        #pyp.show()
 
         # Calculate divisor for reshepe
         ######################################################
-        divisor = 4; MAX_SUBSAMPLE = 15
-        full_len = len(np_alts)
+        #divisor = 4; MAX_SUBSAMPLE = 15
+        #full_len = len(np_alts)
 
-        while (divisor < MAX_SUBSAMPLE):
-            if (full_len%divisor == 0):
-                break
-            divisor += 1
+        #while (divisor < MAX_SUBSAMPLE):
+        #    if (full_len%divisor == 0):
+        #        break
+        #    divisor += 1
         
-        if (divisor == MAX_SUBSAMPLE):
-            if (full_len%2 == 0):
-                divisor = 2
-            else:
-                divisor = 1
-        text_info += "Subsampling set to {}\n".format(divisor)
+        #if (divisor == MAX_SUBSAMPLE):
+        #    if (full_len%2 == 0):
+        #        divisor = 2
+        #    else:
+        #        divisor = 1
+        #text_info += "Subsampling set to {}\n".format(divisor)
         ###################################################
 
-        new_inc = np.sum(np_alts.reshape(-1,divisor), axis=1)
+        #new_inc = np.sum(np_alts.reshape(-1,divisor), axis=1)
         #print(new_inc)
-        self.sampled_inc = np.repeat(new_inc, divisor)
+        #self.sampled_inc = np.repeat(new_inc, divisor)
         #print(sampled_inc)
 
         #self.axis0.plot(altitudes, 'gx')
-        self.axis0.fill_between(self.x_axis, altitudes, color='blue')
-        self.axis0.fill_between(self.x_axis, altitudes, where=self.sampled_inc<self.neutro, color='green')
-        self.axis0.fill_between(self.x_axis, altitudes, where=self.sampled_inc>self.neutro, color='red')
-        self.axis0.set_xlim(0, len(altitudes)); self.axis0.set_ylim(0,max(altitudes))
+        self.axis0.fill_between(self.real_chunk_sizes, altitudes, color='blue')
+        #self.axis0.fill_between(self.real_chunk_sizes, altitudes, where=np_alts<self.neutro, color='green')
+        #self.axis0.fill_between(self.real_chunk_sizes, altitudes, where=np_alts>self.neutro, color='red')
+        self.axis0.set_xlim(0, self.real_chunk_sizes[-1]); self.axis0.set_ylim(0,max(altitudes))
         self.axis0.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
         self.axis0.tick_params(axis='y', which='both', left=False, right=False, labelleft=False)
         self.canvas.draw()
@@ -276,7 +281,7 @@ class TFM_Application():
         self.bestElem = deepcopy(population[scores.index(minScores)])
         print("Best score before start is {}.".format(self.bestScore))
 
-        num_iterations = 50
+        num_iterations = 100
         is_even = len(population)%2 == 0
         print("Is the population even? {}".format(is_even))
 
@@ -288,13 +293,14 @@ class TFM_Application():
             ###################################################################
 
             shuffle(population)
-            if (is_even):
-                for internal_it in range(0,len(population), 2):
-                    self.mixPopulation(internal_it, population)
-            else:
-                for internal_it in range(0, len(population)-1, 2):
-                    self.mixPopulation(internal_it, population)
-                self.newPopulation.append(population[-1])
+            #if (is_even):
+            #    for internal_it in range(0,len(population), 2):
+            #        self.mixPopulation(internal_it, population)
+            #else:
+            #    for internal_it in range(0, len(population)-1, 2):
+            #        self.mixPopulation(internal_it, population)
+            #    self.newPopulation.append(population[-1])
+            self.newPopulation = deepcopy(population)
 
             ###################################################################
             ##                          APPLY MUTATION                       ##
@@ -302,20 +308,20 @@ class TFM_Application():
 
             # self.mutate_v2(int(np.random.rand()*len(self.newPopulation)), self.newPopulation)
             for i in range(0, len(self.newPopulation)):
-                if (np.random.rand() > 0.1):
+                if (np.random.rand() > 0.75):
                     self.mutate_v2(i, self.newPopulation)
 
             ###################################################################
             ##                  CORRECTION OF INDIVIDUALS (REPLACE)          ##
             ###################################################################
-            print("Positions ", end="")
-            for i in range(0, len(self.newPopulation)):
-                if self.v2_score(self.newPopulation[i], self.vehicles_db["Tesla Model X LR"]["Cons"]) < 0:
-                    # Correction time
-                    temp_pop = self.createParallelPopulation(len(self.alts), 1, False)
-                    self.newPopulation[i] = temp_pop[0]
-                    print("{} ".format(i), end="")
-            print(" corrected.")
+            #print("Positions ", end="")
+            #for i in range(0, len(self.newPopulation)):
+            #    if self.v2_score(self.newPopulation[i], self.vehicles_db["Tesla Model X LR"]["Cons"]) < 0:
+            #        # Correction time
+            #        temp_pop = self.createParallelPopulation(len(self.alts), 1, False)
+            #        self.newPopulation[i] = temp_pop[0]
+            #        print("{} ".format(i), end="")
+            #print(" corrected.")
 
             ###################################################################
             ##                  CORRECTION OF INDIVIDUALS (CORRECT)          ##
@@ -345,6 +351,18 @@ class TFM_Application():
                 self.bestScore = minScores
                 self.bestElem = deepcopy(population[scores.index(minScores)])
             print("{}, {}".format(self.bestScore, sum(self.bestElem)))
+
+            ###################################################################
+            ##                  CORRECTION OF INDIVIDUALS (REPLACE)          ##
+            ###################################################################
+            print("Positions ", end="")
+            for i in range(0, len(population)):
+                if scores[i] < 0:
+                    # Correction time
+                    temp_pop = self.createParallelPopulation(len(self.alts), 1, False)
+                    population[i] = temp_pop[0]
+                    print("{} ".format(i), end="")
+            print(" corrected.")
 
             ###################################################################
             ##                      REDRAW EACH ITERATION                    ##
@@ -390,7 +408,7 @@ class TFM_Application():
         if verbose:
             print("Creating population...", end='', flush=True)
         while (len(pops) < num_of_elems):
-            createSubjectsS=partial(v2_create_subjects_par, shape=shape, alts=self.alts, consumption=self.vehicles_db["Tesla Model X LR"]["Cons"], real_chunk_sizes=self.real_chunk_sizes, cruise=self.cruise, road_speeds=self.road_speeds)
+            createSubjectsS=partial(v2_create_subjects_par, shape=shape, alts=self.alts, consumption=self.vehicles_db["Tesla Model X LR"], real_chunk_sizes=self.real_chunk_sizes, cruise=self.cruise, road_speeds=self.road_speeds)
             candidates = self.pool.map(createSubjectsS,list(range(30*mp.cpu_count()-1)))
             for elem in candidates:
                 if (elem[0] != -1):
@@ -433,10 +451,10 @@ class TFM_Application():
             lcl_slope = ((self.alts[i+1] - self.alts[i])/self.real_chunk_sizes[i]) * 100
             #print("Alt1: {}, Alt2: {}, Dist: {}, Slope:{}".format(self.alts[i], self.alts[i+1], self.real_chunk_sizes[i], lcl_slope))
             if (i == 0):
-                chunks.append(Chunk(0, profile[i], lcl_slope))
+                chunks.append(Chunk(0, profile[i], lcl_slope, self.real_chunk_sizes[i]))
                 #print("Initial slope is {}".format(lcl_slope))
             else:
-                chunks.append(Chunk(chunks[-1].v1, profile[i], lcl_slope))
+                chunks.append(Chunk(chunks[-1].v1, profile[i], lcl_slope, self.real_chunk_sizes[i]))
 
             # Once the chunk is created, the v1 speed is calculated
             adapt_cruise_accel = 0
@@ -483,9 +501,9 @@ class TFM_Application():
                 lcl_slope = ((self.alts[i+1] - self.alts[i])/self.real_chunk_sizes[i]) * 100
                 
                 if (i == 0):
-                    chunks.append(Chunk(0, temp_profile[i], lcl_slope))
+                    chunks.append(Chunk(0, temp_profile[i], lcl_slope, self.real_chunk_sizes[i]))
                 else:
-                    chunks.append(Chunk(chunks[-1].v1, temp_profile[i], lcl_slope))
+                    chunks.append(Chunk(chunks[-1].v1, temp_profile[i], lcl_slope, self.real_chunk_sizes[i]))
 
                 # Once the chunk is created, the v1 speed is calculated
                 adapt_cruise_accel = 0

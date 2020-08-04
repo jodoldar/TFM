@@ -13,13 +13,13 @@ def v2_score_par(alts, profile, consumptions, real_chunk_sizes, cruise, road_spe
     chunks = []
     cons = 0
     for i in range(0, len(alts)-1):
-        lcl_slope = ((alts[i+1] - alts[i])/real_chunk_sizes[i]) * 100
+        lcl_slope = ((alts[i+1] - alts[i])/(real_chunk_sizes[i+1]-real_chunk_sizes[i])) * 100
         #print("Alt1: {}, Alt2: {}, Dist: {}, Slope:{}".format(self.alts[i], self.alts[i+1], self.real_chunk_sizes[i], lcl_slope))
         if (i == 0):
-            chunks.append(Chunk(0, profile[i], lcl_slope))
+            chunks.append(Chunk(0, profile[i], lcl_slope, (real_chunk_sizes[i+1]-real_chunk_sizes[i])))
             #print("Initial slope is {}".format(lcl_slope))
         else:
-            chunks.append(Chunk(chunks[-1].v1, profile[i], lcl_slope))
+            chunks.append(Chunk(chunks[-1].v1, profile[i], lcl_slope, (real_chunk_sizes[i+1]-real_chunk_sizes[i])))
 
         # Once the chunk is created, the v1 speed is calculated
         adapt_cruise_accel = 0
@@ -35,13 +35,15 @@ def v2_score_par(alts, profile, consumptions, real_chunk_sizes, cruise, road_spe
         else:
             adapt_cruise_accel = cruise['E']
         
-        adapt_cruise_accel = np.interp(adapt_cruise_accel, consumptions, [0,1])
+        adapt_cruise_accel = np.interp(adapt_cruise_accel, consumptions["Cons"], [0,1])
 
         chunks[-1].calculate_v1(real_chunk_sizes[i], adapt_cruise_accel, road_speeds[i])
+        #chunks[-1].calculate_CPEM_kwh(consumptions)
 
         # In the case there is a negative acceleration (i.e the car is braking), there is no consumption
         if (chunks[-1].accel > 0):
-            cons += np.interp(chunks[-1].accel, [0,1], consumptions) / chunks[-1].est_time_s
+            cons += np.interp(chunks[-1].accel, [0,1], consumptions["Cons"]) / chunks[-1].est_time_s
+            #cons += chunks[-1].est_cons
 
         #print("Chunk {}. v0-> {}, v1-> {}, accel-> {}[{}], slp: {}[{}]".format(i, chunks[-1].v0, chunks[-1].v1, chunks[-1].accel, adapt_cruise_accel, chunks[-1].slope, self.real_chunk_sizes[i]))
     
