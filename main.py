@@ -23,13 +23,14 @@ import numpy as np
 from random import shuffle
 from copy import deepcopy
 from haversine import haversine, Unit
+import cmath, math
 
 import swagger_client
 from swagger_client.rest import ApiException
 from pprint import pprint
 
 from chunk import Chunk
-from par_lib import v2_create_subjects_par, v2_create_subject_par, v2_score_par, v2_check_valid_par
+from par_lib import *
 from veh_db import *
 
 class TFM_Application():
@@ -136,9 +137,6 @@ class TFM_Application():
     def addInfo(self, text):
         self.text_info.insert(END, text)
         self.text_info.yview(END)
-        
-    def calculateRoute(self):
-        print("I'm calculating route from {} to {}...".format(self.origin.get(), self.destination.get()))
 
     def getRouteProfile(self):
         api_instance = swagger_client.RoutingApi()
@@ -193,7 +191,7 @@ class TFM_Application():
         print("Pre-Process 1. Points reduced to {}. Bias is {}".format(len(filt_coords), bias_dist))
 
         self.x_axis = np.arange(0,len(filt_alts),1)
-        np_alts = np.array(inclination)
+        self.np_alts = np.array(inclination)
         self.alts = np.array(filt_alts)
         self.chunk_size = api_response.paths[0].distance / len(api_response.paths[0].points.coordinates)
 
@@ -205,8 +203,8 @@ class TFM_Application():
 
         self.axis0.clear()
         self.axis0.fill_between(self.real_chunk_sizes, filt_alts, color='blue')
-        self.axis0.fill_between(self.real_chunk_sizes, filt_alts, where=np_alts < -5, color='green')
-        self.axis0.fill_between(self.real_chunk_sizes, filt_alts, where=np_alts > 5, color='red')
+        self.axis0.fill_between(self.real_chunk_sizes, filt_alts, where=self.np_alts < -5, color='green')
+        self.axis0.fill_between(self.real_chunk_sizes, filt_alts, where=self.np_alts > 5, color='red')
         self.axis0.set_xlim(0, self.real_chunk_sizes[-1]); self.axis0.set_ylim(0,max(filt_alts))
         self.axis0.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
         self.axis0.tick_params(axis='y', which='both', left=False, right=False, labelleft=False)
@@ -260,13 +258,15 @@ class TFM_Application():
         #print(population)
 
         # Obtain initial scores
-        scores = self.v2_obtainScores(population, self.vehicles_db["Tesla Model X LR"]["Cons"])
+        scores = self.v3_obtainScores(population)
+        #scores = self.v3_score(self.alts, population[0])
+        #scores = self.v2_obtainScores(population, self.vehicles_db["Tesla Model X LR"]["Cons"])
 
         print(scores)
         minScores = float(min([n for n in scores if n>0], default=1000000))
         self.bestScore = minScores
         self.bestElem = deepcopy(population[scores.index(minScores)])
-        print("Best score before start is {}.".format(self.bestScore))
+        print("Best score before start is {} W.".format(self.bestScore))
 
         num_iterations = 100
         is_even = len(population)%2 == 0
@@ -287,7 +287,7 @@ class TFM_Application():
             #    for internal_it in range(0, len(population)-1, 2):
             #        self.mixPopulation(internal_it, population)
             #    self.newPopulation.append(population[-1])
-            self.newPopulation = deepcopy(population)
+            self.newPopulation[:] = population
 
             ###################################################################
             ##                          APPLY MUTATION                       ##
@@ -326,10 +326,10 @@ class TFM_Application():
             ##                         GET BEST SCORE                        ##
             ###################################################################
 
-            population = deepcopy(self.newPopulation)
+            population[:] = self.newPopulation
             self.newPopulation = []
 
-            scores = self.v2_obtainScores(population, self.vehicles_db["Tesla Model X LR"]["Cons"])
+            scores = self.v3_obtainScores(population)
             print(scores, end='')
             minScores = min([n for n in scores if n>0], default=1000000)
             print(" {} ¿{} < {}?".format(minScores, minScores, self.bestScore))
@@ -357,25 +357,24 @@ class TFM_Application():
 
             # Replot each iteration the original graphic w/ the best elem, scaled to adapt in the Y axis.
             self.axis0.clear()
-
-            self.axis0.fill_between(self.x_axis, self.alts, color='blue')
-            self.axis0.fill_between(self.x_axis, self.alts, where=self.sampled_inc<self.neutro, color='green')
-            self.axis0.fill_between(self.x_axis, self.alts, where=self.sampled_inc>self.neutro, color='red')
-            self.axis0.set_xlim(0, len(self.alts)); self.axis0.set_ylim(0,max(self.alts))
+            self.axis0.fill_between(self.real_chunk_sizes, self.alts, color='blue')
+            self.axis0.fill_between(self.real_chunk_sizes, self.alts, where=self.np_alts < -5, color='green')
+            self.axis0.fill_between(self.real_chunk_sizes, self.alts, where=self.np_alts > 5, color='red')
+            self.axis0.set_xlim(0, self.real_chunk_sizes[-1]); self.axis0.set_ylim(0,max(self.alts))
             self.axis0.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
             self.axis0.tick_params(axis='y', which='both', left=False, right=False, labelleft=False)
 
             #self.axis1.clear()
             y_avg = (max(self.alts) - min(self.alts)) / 2
-            self.axis0.plot(self.x_axis, list(map(lambda x: x * (y_avg/2) + y_avg, self.bestElem)), 'y')
-            self.axis0.hlines(y_avg, min(self.x_axis), max(self.x_axis),'k')
+            self.axis0.plot(self.real_chunk_sizes, list(map(lambda x: x * (y_avg/2) + y_avg, self.bestElem))[0], 'y')
+            self.axis0.hlines(y_avg, min(self.real_chunk_sizes), max(self.real_chunk_sizes),'k')
             #self.axis1.set_xlim(0, len(self.bestElem)); self.axis1.set_ylim(0,1)
             self.canvas.draw()
 
             ###################################################################
 
         #print(scores)
-
+        self.addInfo("Best score: {}".format(self.bestScore/1000))
 
 
     def createPopulation(self, shape):
@@ -395,22 +394,21 @@ class TFM_Application():
         if verbose:
             print("Creating population...", end='', flush=True)
         while (len(pops) < num_of_elems):
-            createSubjectsS=partial(v2_create_subjects_par, shape=shape, alts=self.alts, consumption=self.vehicles_db["Tesla Model X LR"], real_chunk_sizes=self.real_chunk_sizes, cruise=self.cruise, road_speeds=self.road_speeds)
-            candidates = self.pool.map(createSubjectsS,list(range(30*mp.cpu_count()-1)))
+            createSubjectsS=partial(v3_create_subjects_par, profile=self.alts, real_chunk_sizes=self.real_chunk_sizes, vehicle_used=self.vehicles_db[self.vehicle_used.get()], roads=self.road_speeds)
+            candidates = self.pool.map(createSubjectsS,list(range(30)))
             for elem in candidates:
                 if (elem[0] != -1):
                     pops.append(elem[1])
                     if verbose:
                         print(" {}".format(len(pops)), end='', flush=True)
+                else:
+                    print(" A", end='')
         if verbose:
             print("")
+
         self.pool.close()
+
         return pops
-
-    def createSubject(self, shape):
-        # Creation of individual between [0.5, 0.5]
-        return np.random.rand(1, shape) - 0.5
-
 
 
     def obtainScores(self, population, consumptions):
@@ -430,6 +428,46 @@ class TFM_Application():
             scores.append(self.v2_score(elem, consumptions))
         
         return scores
+
+    def v3_obtainScores(self, population):
+        scores = []
+        for elem in population:
+            scores.append(self.v3_score(elem))
+        
+        return scores
+
+    def v3_score(self, candidate):
+
+        chunks = []
+        cons = 0
+
+        for i in range(0, len(self.alts) - 1):
+            lcl_slope = ((self.alts[i+1] - self.alts[i])/(self.real_chunk_sizes[i+1] - self.real_chunk_sizes[i])) * 100
+            #print("{:0.1f}-".format(lcl_slope), end='', flush=True)
+
+            if i==0:
+                chunks.append(Chunk(0, candidate[0][0], lcl_slope, (self.real_chunk_sizes[i+1] - self.real_chunk_sizes[i])))
+            else:
+                chunks.append(Chunk(chunks[-1].v1, candidate[0][i], lcl_slope, (self.real_chunk_sizes[i+1] - self.real_chunk_sizes[i])))
+
+            d = (chunks[-1].v0**2) - (2*chunks[-1].accel*chunks[-1].space)
+            time1 = ((-1 * chunks[-1].v0) - cmath.sqrt(d)) / chunks[-1].accel
+            time2 = ((-1 * chunks[-1].v0) + cmath.sqrt(d)) / chunks[-1].accel
+
+            #print("{},{},{} ".format(chunks[-1].v0, chunks[-1].accel, chunks[-1].space), end='')
+            chunks[-1].v1 = math.sqrt(max(0,(chunks[-1].v0**2) + (2*chunks[-1].accel*chunks[-1].space)))
+            chunks[-1].est_time_s = abs((chunks[-1].v1 - chunks[-1].v0) / chunks[-1].accel)
+
+            chunks[-1].calculate_CPEM_kwh(self.vehicles_db[self.vehicle_used.get()])
+            if chunks[-1].est_cons > 0:
+                cons += chunks[-1].est_cons
+            #print(" --> {}".format(chunks[-1].est_cons))
+
+        #print("Cons (kWh): {}".format(cons/1000))
+
+        if (not self.v3_checkValid(chunks)):
+            return -1
+        return cons
 
     def v2_score(self, profile, consumptions):
         chunks = []
@@ -522,7 +560,7 @@ class TFM_Application():
 
     # In this function, it has to be checked different facts:
     #   - In any moment the v1 speed is higher than the road limit.
-    def v2_checkValid(self, chunks):
+    def v3_checkValid(self, chunks):
         for i in range(len(chunks)):
             if (chunks[i].v1 > self.road_speeds[i]):
                 #print("Profile not valid. {} is greater than {}. (v0: {}, v1: {}, accel: {}, slp:{}, dist: {}".format(chunks[i].v1, self.road_speeds[i], chunks[i].v0, chunks[i].v1, chunks[i].accel, chunks[i].slope, self.real_chunk_sizes[i]))
@@ -543,14 +581,13 @@ class TFM_Application():
         self.newPopulation.append(l1)
         self.newPopulation.append(l2)
 
-
     def mutate(self, pos, population):
         for i in range(0, len(population[pos])):
             if (np.random.rand() > 0.4):
                 population[pos][i] = np.random.rand()
 
     def mutate_v2(self, pos, population):
-        for i in range(0, len(population[pos])):
+        for i in range(0, len(population[pos][0])):
             # First decide if we increase or decrease the accel.
             if (np.random.rand() > 0.5):
                 fFactor = 1 # Increase accel.
@@ -559,7 +596,7 @@ class TFM_Application():
 
             # Apply the mutation if applies.
             if (np.random.rand() > 0.8):
-                population[pos][i] = clamp(population[pos][i] + (0.1*fFactor), -1, 1)
+                population[pos][0][i] = clamp(population[pos][0][i] + (0.1*fFactor), -1, 1)
 
 def clamp(n, minn, maxn): return min(max(n, minn), maxn) 
 

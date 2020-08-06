@@ -1,5 +1,7 @@
 import numpy as np
+import math, cmath
 from chunk import Chunk
+
 
 def v2_create_subjects_par(it, shape, alts, consumption, real_chunk_sizes, cruise, road_speeds):
         candidate = v2_create_subject_par(shape)
@@ -61,3 +63,41 @@ def v2_check_valid_par(chunks, road_speeds):
             #print("Profile not valid. {} is greater than {}. (v0: {}, v1: {}, accel: {}, slp:{}, dist: {}".format(chunks[i].v1, self.road_speeds[i], chunks[i].v0, chunks[i].v1, chunks[i].accel, chunks[i].slope, self.real_chunk_sizes[i]))
             return False
     return True
+
+
+def v3_create_subjects_par(it, profile, real_chunk_sizes, vehicle_used, roads):
+    first = np.random.rand(1, len(profile)) - 0.5
+    return (v3_score_par(profile, first, real_chunk_sizes, vehicle_used, roads) ,first)
+
+def v3_score_par(profile, candidate, real_chunk_sizes, vehicle_used, roads):
+
+    chunks = []
+    cons = 0
+
+    for i in range(0, len(profile) - 1):
+        lcl_slope = ((profile[i+1] - profile[i])/(real_chunk_sizes[i+1] - real_chunk_sizes[i])) * 100
+        #print("{:0.1f}-".format(lcl_slope), end='', flush=True)
+
+        if i==0:
+            chunks.append(Chunk(0, candidate[0][0], lcl_slope, (real_chunk_sizes[i+1] - real_chunk_sizes[i])))
+        else:
+            chunks.append(Chunk(chunks[-1].v1, candidate[0][i], lcl_slope, (real_chunk_sizes[i+1] - real_chunk_sizes[i])))
+
+        d = (chunks[-1].v0**2) - (2*chunks[-1].accel*chunks[-1].space)
+        time1 = ((-1 * chunks[-1].v0) - cmath.sqrt(d)) / chunks[-1].accel
+        time2 = ((-1 * chunks[-1].v0) + cmath.sqrt(d)) / chunks[-1].accel
+
+        #print("{},{},{} ".format(chunks[-1].v0, chunks[-1].accel, chunks[-1].space), end='')
+        chunks[-1].v1 = math.sqrt(max(0,(chunks[-1].v0**2) + (2*chunks[-1].accel*chunks[-1].space)))
+        chunks[-1].est_time_s = abs((chunks[-1].v1 - chunks[-1].v0) / chunks[-1].accel)
+
+        chunks[-1].calculate_CPEM_kwh(vehicle_used)
+        if chunks[-1].est_cons > 0:
+            cons += chunks[-1].est_cons
+        #print(" --> {}".format(chunks[-1].est_cons))
+
+    #print("Cons (kWh): {}".format(cons/1000))
+    if (not v2_check_valid_par(chunks, roads)):
+        return -1
+
+    return cons
