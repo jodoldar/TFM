@@ -334,7 +334,7 @@ class TFM_Application():
             minScores = min([n for n in scores if n>0], default=1000000)
             print(" {} ¿{} < {}?".format(minScores, minScores, self.bestScore))
             if (minScores < self.bestScore):
-                print("Update: {}, pos of. {}".format(minScores.all(), scores.index(minScores)))
+                print("Update: {}, pos of. {}".format(minScores, scores.index(minScores)))
                 self.bestScore = minScores
                 self.bestElem = deepcopy(population[scores.index(minScores)])
             print("{}, {}".format(self.bestScore, sum(self.bestElem)))
@@ -458,9 +458,9 @@ class TFM_Application():
             chunks[-1].v1 = math.sqrt(max(0,(chunks[-1].v0**2) + (2*chunks[-1].accel*chunks[-1].space)))
             chunks[-1].est_time_s = abs((chunks[-1].v1 - chunks[-1].v0) / chunks[-1].accel)
 
-            chunks[-1].calculate_CPEM_kwh(self.vehicles_db[self.vehicle_used.get()])
-            if chunks[-1].est_cons > 0:
-                cons += chunks[-1].est_cons
+            chunks[-1].calculate_CPEM_kwh_pro(self.vehicles_db[self.vehicle_used.get()])
+            if chunks[-1].est_cons[0] > 0:
+                cons += chunks[-1].est_cons[0]
             #print(" --> {}".format(chunks[-1].est_cons))
 
         #print("Cons (kWh): {}".format(cons/1000))
