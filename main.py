@@ -268,7 +268,7 @@ class TFM_Application():
         self.bestElem = deepcopy(population[scores.index(minScores)])
         print("Best score before start is {} W.".format(self.bestScore))
 
-        num_iterations = 100
+        num_iterations = 1
         is_even = len(population)%2 == 0
         print("Is the population even? {}".format(is_even))
 
@@ -279,7 +279,19 @@ class TFM_Application():
             ##                      MIX POPULATION                           ##
             ###################################################################
 
-            shuffle(population)
+            # Apply normalized NGR
+            q0 = 0.05 / (1 - (1-0.05)**len(population))
+            
+            sort_scores = sorted(scores)
+            sort_positions = sorted(range(len(scores)), key=lambda k: scores[k])
+            ngr = []
+
+            for sor_it in range(0, len(sort_scores)):
+                ngr.append(0.05 * (1-0.05)**(sor_it))
+
+            print("For mixing: q0 = {}, scores:\n{}".format(q0, ngr))
+            print("{}\n{}".format(sort_scores, sort_positions))
+            #shuffle(population)
             #if (is_even):
             #    for internal_it in range(0,len(population), 2):
             #        self.mixPopulation(internal_it, population)
