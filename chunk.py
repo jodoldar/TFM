@@ -99,7 +99,7 @@ class Chunk:
 
         em_est_cons = force  * (1/self.driveline_eff) * (1/self.elec_motor_eff)
 
-        if em_est_cons < 0 and self.accel < 0:
+        if (em_est_cons < 0) and (self.accel < -0.01):
             regen_brk_eff = 1 / math.exp(0.0411/self.accel)
             em_est_cons = em_est_cons * (1/regen_brk_eff)
 

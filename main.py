@@ -44,7 +44,8 @@ class TFM_Application():
         # Default values for UI
         self.origin = StringVar(); self.origin.set("39.462160,-0.324177")
         self.destination = StringVar(); self.destination.set("39.441699,-0.595555")
-        
+        self.ngr_val = 0.1
+        self.ga_iterations = StringVar(); self.ga_iterations.set(20)
 
         self.figure = Figure(figsize= ((width-190)/100, 3.3), dpi=100)
         self.axis0 = self.figure.add_axes((0.00, 0.01, 0.999, 0.99), frameon=True)
@@ -100,6 +101,12 @@ class TFM_Application():
         # Left Column > Calculate optimum profile
         self.profile_button = ttk.Button(self.leftFrame, text='Cálculo', command=self.getOptimumProfile)
         self.profile_button.grid(column=0, row=9, sticky="we")
+
+        # Left Column > GA Iterations
+        self.ga_iterations_lab = ttk.Label(self.leftFrame, text='Iteraciones: ')
+        self.ga_iterations_p = ttk.Entry(self.leftFrame, textvariable=self.ga_iterations)
+        self.ga_iterations_lab.grid(column=0, row=10)
+        self.ga_iterations_p.grid(column=0, row=11, pady=(0,5))
 
         # Center Zone > Get Window Information
         self.button_getInfo = ttk.Button(self.centerFrame, text='Informame',
@@ -268,7 +275,7 @@ class TFM_Application():
         self.bestElem = deepcopy(population[scores.index(minScores)])
         print("Best score before start is {} W.".format(self.bestScore))
 
-        num_iterations = 1
+        num_iterations = int(self.ga_iterations.get())
         is_even = len(population)%2 == 0
         print("Is the population even? {}".format(is_even))
 
@@ -280,25 +287,43 @@ class TFM_Application():
             ###################################################################
 
             # Apply normalized NGR
-            q0 = 0.05 / (1 - (1-0.05)**len(population))
+            q0 = self.ngr_val / (1 - (1 - self.ngr_val)**len(population))
             
             sort_scores = sorted(scores)
             sort_positions = sorted(range(len(scores)), key=lambda k: scores[k])
             ngr = []
 
             for sor_it in range(0, len(sort_scores)):
-                ngr.append(0.05 * (1-0.05)**(sor_it))
+                ngr.append(self.ngr_val * (1 - self.ngr_val)**(sor_it))
 
-            print("For mixing: q0 = {}, scores:\n{}".format(q0, ngr))
-            print("{}\n{}".format(sort_scores, sort_positions))
-            #shuffle(population)
-            #if (is_even):
-            #    for internal_it in range(0,len(population), 2):
-            #        self.mixPopulation(internal_it, population)
-            #else:
-            #    for internal_it in range(0, len(population)-1, 2):
-            #        self.mixPopulation(internal_it, population)
-            #    self.newPopulation.append(population[-1])
+            #print("For mixing: q0 = {}, scores:\n{}".format(q0, ngr))
+            #print("{}\n{}".format(sort_scores, sort_positions))
+            
+            max_candidates = round(0.4 * len(population))
+            if (max_candidates % 2) != 0:
+                max_candidates = max_candidates - 1
+            candidates = []; children = []
+
+            # Get best candidates
+            for sor_it in range(0, len(ngr)):
+                if ((ngr[sor_it] > (self.ngr_val * 0.4)) or (len(candidates) < max_candidates)):
+                    candidates.append(population[sort_positions[sor_it]])
+                    #print("Added position: {} -> {}".format(sort_positions[sor_it], ngr[sor_it]))
+
+            # Get new children
+            for pos in range(0, max_candidates, 2):
+                dist = np.random.uniform()
+                childA = []; childB = []
+
+                for pair in list(zip(candidates[pos], candidates[pos+1])):
+                    childA.append(dist*pair[0] + (1-dist)*pair[1])
+                    childB.append((1-dist)*pair[0] + dist*pair[1])
+                    children.append(childA); children.append(childB)
+
+            # Replace worst population
+            for pos in range(0, max_candidates):
+                population[len(ngr) - 1 - pos] = children[pos]
+
             self.newPopulation[:] = population
 
             ###################################################################
@@ -306,9 +331,9 @@ class TFM_Application():
             ###################################################################
 
             # self.mutate_v2(int(np.random.rand()*len(self.newPopulation)), self.newPopulation)
-            for i in range(0, len(self.newPopulation)):
-                if (np.random.rand() > 0.75):
-                    self.mutate_v2(i, self.newPopulation)
+            for i in range(0, len(population)):
+                if (np.random.rand() > 0.9):
+                    self.mutate_v3(i, population)
 
             ###################################################################
             ##                  CORRECTION OF INDIVIDUALS (REPLACE)          ##
@@ -349,7 +374,7 @@ class TFM_Application():
                 print("Update: {}, pos of. {}".format(minScores, scores.index(minScores)))
                 self.bestScore = minScores
                 self.bestElem = deepcopy(population[scores.index(minScores)])
-            print("{}, {}".format(self.bestScore, sum(self.bestElem)))
+            #print("{}, {}".format(self.bestScore, sum(self.bestElem)))
 
             ###################################################################
             ##                  CORRECTION OF INDIVIDUALS (REPLACE)          ##
@@ -386,7 +411,7 @@ class TFM_Application():
             ###################################################################
 
         #print(scores)
-        self.addInfo("Best score: {}".format(self.bestScore/1000))
+        self.addInfo("Best score: {} kWh".format(round(self.bestScore/3600),2))
 
 
     def createPopulation(self, shape):
@@ -609,6 +634,10 @@ class TFM_Application():
             # Apply the mutation if applies.
             if (np.random.rand() > 0.8):
                 population[pos][0][i] = clamp(population[pos][0][i] + (0.1*fFactor), -1, 1)
+
+    def mutate_v3(self, pos, population):
+        mut_pos = round(np.random.uniform(0, len(population)-1))
+        population[pos][0][mut_pos] = np.random.uniform()
 
 def clamp(n, minn, maxn): return min(max(n, minn), maxn) 
 
