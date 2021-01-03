@@ -259,9 +259,10 @@ class TFM_Application():
                     self.road_speeds[filt_ids.index(i)] = max_speed
 
     def getOptimumProfile(self):
+        file_out = open("tfm.out", "w")
         ###################################################
         # Creating population
-        population = self.createParallelPopulation(len(self.alts))
+        population = self.createParallelPopulation(len(self.alts), 100)
         #print(population)
 
         # Obtain initial scores
@@ -375,11 +376,12 @@ class TFM_Application():
                 self.bestScore = minScores
                 self.bestElem = deepcopy(population[scores.index(minScores)])
             #print("{}, {}".format(self.bestScore, sum(self.bestElem)))
+            file_out.write("{},{},{}\n".format(it,self.bestScore, minScores))
 
             ###################################################################
             ##                  CORRECTION OF INDIVIDUALS (REPLACE)          ##
             ###################################################################
-            print("Positions ", end="")
+            print("{} - Positions ".format(it), end="")
             for i in range(0, len(population)):
                 if scores[i] < 0:
                     # Correction time
@@ -408,10 +410,13 @@ class TFM_Application():
             #self.axis1.set_xlim(0, len(self.bestElem)); self.axis1.set_ylim(0,1)
             self.canvas.draw()
 
+            file_out.flush()
+
             ###################################################################
 
         #print(scores)
         self.addInfo("Best score: {} kWh".format(round(self.bestScore/3600),2))
+        file_out.close()
 
 
     def createPopulation(self, shape):
