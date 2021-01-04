@@ -266,7 +266,8 @@ class TFM_Application():
         #print(population)
 
         # Obtain initial scores
-        scores = self.v3_obtainScores(population)
+        all_chunks = []
+        scores, all_chunks = self.v3_obtainScores(population)
         #scores = self.v3_score(self.alts, population[0])
         #scores = self.v2_obtainScores(population, self.vehicles_db["Tesla Model X LR"]["Cons"])
 
@@ -367,7 +368,7 @@ class TFM_Application():
             population[:] = self.newPopulation
             self.newPopulation = []
 
-            scores = self.v3_obtainScores(population)
+            scores, all_chunks = self.v3_obtainScores(population)
             print(scores, end='')
             minScores = min([n for n in scores if n>0], default=1000000)
             print(" {} ¿{} < {}?".format(minScores, minScores, self.bestScore))
@@ -381,12 +382,25 @@ class TFM_Application():
             ###################################################################
             ##                  CORRECTION OF INDIVIDUALS (REPLACE)          ##
             ###################################################################
+            #print("{} - Positions ".format(it), end="")
+            #for i in range(0, len(population)):
+            #    if scores[i] < 0:
+            #        # Correction time
+            #        temp_pop = self.createParallelPopulation(len(self.alts), 1, False)
+            #        population[i] = temp_pop[0]
+            #        print("{} ".format(i), end="")
+            #print(" corrected.")
+
+            ###################################################################
+            ##                  CORRECTION OF INDIVIDUALS (CORRECT)          ##
+            ###################################################################
             print("{} - Positions ".format(it), end="")
             for i in range(0, len(population)):
                 if scores[i] < 0:
                     # Correction time
-                    temp_pop = self.createParallelPopulation(len(self.alts), 1, False)
-                    population[i] = temp_pop[0]
+                    temp_pop = self.v3_correction(population[i], all_chunks[i])
+            #        temp_pop = self.v2_correction(self.newPopulation[i],self.vehicles_db["Tesla Model X LR"]["Cons"])
+                    population[i] = temp_pop
                     print("{} ".format(i), end="")
             print(" corrected.")
 
@@ -472,11 +486,16 @@ class TFM_Application():
         return scores
 
     def v3_obtainScores(self, population):
-        scores = []
-        for elem in population:
-            scores.append(self.v3_score(elem))
+        scores = []; chunks = []
         
-        return scores
+
+        for elem in population:
+            lcl_score, lcl_chunk = self.v3_score(elem)
+            scores.append(lcl_score)
+            chunks.append(lcl_chunk)
+            #scores.append(self.v3_score(elem))
+        
+        return scores, chunks
 
     def v3_score(self, candidate):
 
@@ -508,8 +527,9 @@ class TFM_Application():
         #print("Cons (kWh): {}".format(cons/1000))
 
         if (not self.v3_checkValid(chunks)):
-            return -1
-        return cons
+            return (-1, chunks)
+        
+        return (cons, chunks)
 
     def v2_score(self, profile, consumptions):
         chunks = []
@@ -598,6 +618,39 @@ class TFM_Application():
 
             attempts += 1
 
+        return new_profile
+
+    def v3_correction(self, profile, chunks):
+        """Corrects an element of the population
+
+        Args:
+            profile ([ndarray]): Profile of the element to be corrected.
+            chunks([list]): Chunks where the correction should be made.
+
+        The correction will be made in those chunks where the computed v1
+        speed is greater than the road limit.
+
+        Return:
+            ([list]): Corrected element
+        """
+
+        new_profile = profile[:]
+
+        for i in range(len(chunks) - 1):
+            if (chunks[i].v1 > self.road_speeds[i]):
+                # Moment to try the recovery. Soften the acceleration performed
+                new_profile[0][i] = new_profile[0][i]*0.9
+                tmp_score, tmp_chunks = self.v3_score(new_profile)
+                
+                while (tmp_chunks[i].v1 > self.road_speeds[i]):
+                    new_profile[0][i] = new_profile[0][i]-0.05
+                    tmp_score, tmp_chunks = self.v3_score(new_profile)
+                
+                if (tmp_score > 0):
+                    # Element corrected
+                    return new_profile
+
+        # In case we end here, then best-effort has been made ¿without success?
         return new_profile
 
     # In this function, it has to be checked different facts:
