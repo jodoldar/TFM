@@ -71,3 +71,9 @@ point_bias = {
     "50": 50,
     "100" : 100
 }
+
+ga_method = {
+    "+ Consumos": 0,
+    "+ Tiempo": 1,
+    "Ambos": 2
+}

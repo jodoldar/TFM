@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from __future__ import print_function
+import chunk
 
 from tkinter import Tk, StringVar, Frame, Text, END, Scrollbar
 from tkinter import ttk
@@ -96,17 +97,24 @@ class TFM_Application():
 
         # Left Column > Obtain route from API
         self.calc_button = ttk.Button(self.leftFrame, text='Obtener ruta', command=self.getRouteProfile)
-        self.calc_button.grid(column=0, row=8, sticky="we")
+        self.calc_button.grid(column=0, row=12, pady=(10,5), sticky="we")
 
         # Left Column > Calculate optimum profile
-        self.profile_button = ttk.Button(self.leftFrame, text='Cálculo', command=self.getOptimumProfile)
-        self.profile_button.grid(column=0, row=9, sticky="we")
+        self.profile_button = ttk.Button(self.leftFrame, text='Cálculo', command=self.getIOptimumProfile)
+        self.profile_button.grid(column=0, row=13, sticky="we")
 
         # Left Column > GA Iterations
         self.ga_iterations_lab = ttk.Label(self.leftFrame, text='Iteraciones: ')
         self.ga_iterations_p = ttk.Entry(self.leftFrame, textvariable=self.ga_iterations)
-        self.ga_iterations_lab.grid(column=0, row=10)
-        self.ga_iterations_p.grid(column=0, row=11, pady=(0,5))
+        self.ga_iterations_lab.grid(column=0, row=8)
+        self.ga_iterations_p.grid(column=0, row=9, pady=(0,5), sticky="we")
+
+        # Left Column > Method
+        self.ga_method_lab = ttk.Label(self.leftFrame, text='Método Opt.:')
+        self.ga_method_cb = ttk.Combobox(self.leftFrame, values=list(ga_method.keys()), state='readonly')
+        self.ga_method_cb.set(list(ga_method.keys())[0])
+        self.ga_method_lab.grid(column=0, row=10)
+        self.ga_method_cb.grid(column=0, row=11, pady=(0,5))
 
         # Center Zone > Get Window Information
         self.button_getInfo = ttk.Button(self.centerFrame, text='Informame',
@@ -134,6 +142,7 @@ class TFM_Application():
         self.canvas.get_tk_widget().grid(column=0, row=4,sticky="nsew")
         self.canvas.draw()
 
+        self.route_info_available = False
         self.calc_button.focus_set()
 
         self.root.mainloop()
@@ -257,6 +266,26 @@ class TFM_Application():
             for i in range(road_block[0], road_block[1]-1):
                 if i in filt_ids:
                     self.road_speeds[filt_ids.index(i)] = max_speed
+
+        self.route_info_available = True
+
+    def getIOptimumProfile(self):
+        print("Info? {}, Profile? {}".format(self.route_info_available, self.ga_method_cb.current()))
+
+        if (self.route_info_available == False):
+            self.getRouteProfile()
+
+        if self.route_info_available: #Second filter
+            if self.ga_method_cb.current() == 0:
+                self.getOptimumProfile()
+            elif self.ga_method_cb.current() == 1:
+                self.getOptimumProfileTime()
+            else:
+                self.getOptimumProfileMixed()
+        else:
+            print("Mala suerte amigo")
+
+
 
     def getOptimumProfile(self):
         file_out = open("tfm.out", "w")
@@ -432,6 +461,306 @@ class TFM_Application():
         self.addInfo("Best score: {} kWh".format(round(self.bestScore/3600),2))
         file_out.close()
 
+    def getOptimumProfileMixed(self):
+        file_out = open("tfm.out", "w")
+        ###################################################
+        # Creating population
+        population = self.createParallelPopulation(len(self.alts), 100)
+
+        # Obtain initial scores
+        all_chunks = []
+        scoreKwh, chunksKwh = self.v3_obtainScores(population)
+        scoreSec, chunksSec = self.v3_obtainScoresByTime(population)
+
+        scores = list((np.array(scoreKwh)+np.array(scoreSec))/2)
+        #scores, all_chunks = self.v3_obtainScoresByTime(population)
+
+        print(scores)
+        minScores = float(min([n for n in scores if n>0], default=1000000))
+        self.bestScore = minScores
+        self.bestElem = deepcopy(population[scores.index(minScores)])
+        print("Best score before start is {} Sec.".format(self.bestScore))
+
+        num_iterations = int(self.ga_iterations.get())
+        is_even = len(population)%2 == 0
+        print("Is the population even? {}".format(is_even))
+
+        self.newPopulation = []
+        for it in range(0, num_iterations):
+
+            ###################################################################
+            ##                      MIX POPULATION                           ##
+            ###################################################################
+
+            # Apply normalized NGR
+            q0 = self.ngr_val / (1 - (1 - self.ngr_val)**len(population))
+            
+            sort_scores = sorted(scores)
+            sort_positions = sorted(range(len(scores)), key=lambda k: scores[k])
+            ngr = []
+
+            for sor_it in range(0, len(sort_scores)):
+                ngr.append(self.ngr_val * (1 - self.ngr_val)**(sor_it))
+
+            #print("For mixing: q0 = {}, scores:\n{}".format(q0, ngr))
+            #print("{}\n{}".format(sort_scores, sort_positions))
+            
+            max_candidates = round(0.4 * len(population))
+            if (max_candidates % 2) != 0:
+                max_candidates = max_candidates - 1
+            candidates = []; children = []
+
+            # Get best candidates
+            for sor_it in range(0, len(ngr)):
+                if ((ngr[sor_it] > (self.ngr_val * 0.4)) or (len(candidates) < max_candidates)):
+                    candidates.append(population[sort_positions[sor_it]])
+                    #print("Added position: {} -> {}".format(sort_positions[sor_it], ngr[sor_it]))
+
+            # Get new children
+            for pos in range(0, max_candidates, 2):
+                dist = np.random.uniform()
+                childA = []; childB = []
+
+                for pair in list(zip(candidates[pos], candidates[pos+1])):
+                    childA.append(dist*pair[0] + (1-dist)*pair[1])
+                    childB.append((1-dist)*pair[0] + dist*pair[1])
+                    children.append(childA); children.append(childB)
+
+            # Replace worst population
+            for pos in range(0, max_candidates):
+                population[len(ngr) - 1 - pos] = children[pos]
+
+            self.newPopulation[:] = population
+
+            ###################################################################
+            ##                          APPLY MUTATION                       ##
+            ###################################################################
+
+            # self.mutate_v2(int(np.random.rand()*len(self.newPopulation)), self.newPopulation)
+            for i in range(0, len(population)):
+                if (np.random.rand() > 0.9):
+                    self.mutate_v3(i, population)
+
+            ###################################################################
+            ##                         GET BEST SCORE                        ##
+            ###################################################################
+
+            population[:] = self.newPopulation
+            self.newPopulation = []
+            scoreKwh, chunksKwh = self.v3_obtainScores(population)
+            scoreSec, chunksSec = self.v3_obtainScoresByTime(population)
+
+            scores = list((np.array(scoreKwh)+np.array(scoreSec))/2)
+            #scores, all_chunks = self.v3_obtainScoresByTime(population)
+            print(scores, end='')
+            minScores = min([n for n in scores if n>0], default=1000000)
+            print(" {} ¿{} < {}?".format(minScores, minScores, self.bestScore))
+            if (minScores < self.bestScore):
+                print("Update: {}, pos of. {}".format(minScores, scores.index(minScores)))
+                self.bestScore = minScores
+                self.bestElem = deepcopy(population[scores.index(minScores)])
+            #print("{}, {}".format(self.bestScore, sum(self.bestElem)))
+            file_out.write("{},{},{}\n".format(it,self.bestScore, minScores))
+
+            ###################################################################
+            ##                  CORRECTION OF INDIVIDUALS (REPLACE)          ##
+            ###################################################################
+            print("{} - Positions ".format(it), end="")
+            for i in range(0, len(population)):
+                if scores[i] < 0:
+                    # Correction time
+                    temp_pop = self.createParallelPopulation(len(self.alts), 1, False)
+                    population[i] = temp_pop[0]
+                    print("{} ".format(i), end="")
+            print(" corrected.")
+
+            ###################################################################
+            ##                  CORRECTION OF INDIVIDUALS (CORRECT)          ##
+            ###################################################################
+            #print("{} - Positions ".format(it), end="")
+            #for i in range(0, len(population)):
+            #    if scores[i] < 0:
+                    # Correction time
+            #        temp_pop = self.v3_correction(population[i], all_chunks[i])
+            #        temp_pop = self.v2_correction(self.newPopulation[i],self.vehicles_db["Tesla Model X LR"]["Cons"])
+            #        population[i] = temp_pop
+            #        print("{} ".format(i), end="")
+            #print(" corrected.")
+
+            ###################################################################
+            ##                      REDRAW EACH ITERATION                    ##
+            ###################################################################
+
+            # Replot each iteration the original graphic w/ the best elem, scaled to adapt in the Y axis.
+            self.axis0.clear()
+            self.axis0.fill_between(self.real_chunk_sizes, self.alts, color='blue')
+            self.axis0.fill_between(self.real_chunk_sizes, self.alts, where=self.np_alts < -5, color='green')
+            self.axis0.fill_between(self.real_chunk_sizes, self.alts, where=self.np_alts > 5, color='red')
+            self.axis0.set_xlim(0, self.real_chunk_sizes[-1]); self.axis0.set_ylim(0,max(self.alts))
+            self.axis0.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
+            self.axis0.tick_params(axis='y', which='both', left=False, right=False, labelleft=False)
+
+            #self.axis1.clear()
+            y_avg = (max(self.alts) - min(self.alts)) / 2
+            self.axis0.plot(self.real_chunk_sizes, list(map(lambda x: x * (y_avg/2) + y_avg, self.bestElem))[0], 'y')
+            self.axis0.hlines(y_avg, min(self.real_chunk_sizes), max(self.real_chunk_sizes),'k')
+            #self.axis1.set_xlim(0, len(self.bestElem)); self.axis1.set_ylim(0,1)
+            self.canvas.draw()
+
+            file_out.flush()
+
+            ###################################################################
+
+        #print(scores)
+        self.addInfo("Best score: {} M.".format(round(self.bestScore/60),2))
+        file_out.close()
+
+    def getOptimumProfileTime(self):
+        file_out = open("tfm.out", "w")
+        ###################################################
+        # Creating population
+        population = self.createParallelPopulation(len(self.alts), 100)
+
+        # Obtain initial scores
+        all_chunks = []
+        scores, all_chunks = self.v3_obtainScoresByTime(population)
+
+        print(scores)
+        minScores = float(min([n for n in scores if n>0], default=1000000))
+        self.bestScore = minScores
+        self.bestElem = deepcopy(population[scores.index(minScores)])
+        print("Best score before start is {} Sec.".format(self.bestScore))
+
+        num_iterations = int(self.ga_iterations.get())
+        is_even = len(population)%2 == 0
+        print("Is the population even? {}".format(is_even))
+
+        self.newPopulation = []
+        for it in range(0, num_iterations):
+
+            ###################################################################
+            ##                      MIX POPULATION                           ##
+            ###################################################################
+
+            # Apply normalized NGR
+            q0 = self.ngr_val / (1 - (1 - self.ngr_val)**len(population))
+            
+            sort_scores = sorted(scores)
+            sort_positions = sorted(range(len(scores)), key=lambda k: scores[k])
+            ngr = []
+
+            for sor_it in range(0, len(sort_scores)):
+                ngr.append(self.ngr_val * (1 - self.ngr_val)**(sor_it))
+
+            #print("For mixing: q0 = {}, scores:\n{}".format(q0, ngr))
+            #print("{}\n{}".format(sort_scores, sort_positions))
+            
+            max_candidates = round(0.4 * len(population))
+            if (max_candidates % 2) != 0:
+                max_candidates = max_candidates - 1
+            candidates = []; children = []
+
+            # Get best candidates
+            for sor_it in range(0, len(ngr)):
+                if ((ngr[sor_it] > (self.ngr_val * 0.4)) or (len(candidates) < max_candidates)):
+                    candidates.append(population[sort_positions[sor_it]])
+                    #print("Added position: {} -> {}".format(sort_positions[sor_it], ngr[sor_it]))
+
+            # Get new children
+            for pos in range(0, max_candidates, 2):
+                dist = np.random.uniform()
+                childA = []; childB = []
+
+                for pair in list(zip(candidates[pos], candidates[pos+1])):
+                    childA.append(dist*pair[0] + (1-dist)*pair[1])
+                    childB.append((1-dist)*pair[0] + dist*pair[1])
+                    children.append(childA); children.append(childB)
+
+            # Replace worst population
+            for pos in range(0, max_candidates):
+                population[len(ngr) - 1 - pos] = children[pos]
+
+            self.newPopulation[:] = population
+
+            ###################################################################
+            ##                          APPLY MUTATION                       ##
+            ###################################################################
+
+            # self.mutate_v2(int(np.random.rand()*len(self.newPopulation)), self.newPopulation)
+            for i in range(0, len(population)):
+                if (np.random.rand() > 0.9):
+                    self.mutate_v3(i, population)
+
+            ###################################################################
+            ##                         GET BEST SCORE                        ##
+            ###################################################################
+
+            population[:] = self.newPopulation
+            self.newPopulation = []
+
+            scores, all_chunks = self.v3_obtainScoresByTime(population)
+            print(scores, end='')
+            minScores = min([n for n in scores if n>0], default=1000000)
+            print(" {} ¿{} < {}?".format(minScores, minScores, self.bestScore))
+            if (minScores < self.bestScore):
+                print("Update: {}, pos of. {}".format(minScores, scores.index(minScores)))
+                self.bestScore = minScores
+                self.bestElem = deepcopy(population[scores.index(minScores)])
+            #print("{}, {}".format(self.bestScore, sum(self.bestElem)))
+            file_out.write("{},{},{}\n".format(it,self.bestScore, minScores))
+
+            ###################################################################
+            ##                  CORRECTION OF INDIVIDUALS (REPLACE)          ##
+            ###################################################################
+            print("{} - Positions ".format(it), end="")
+            for i in range(0, len(population)):
+                if scores[i] < 0:
+                    # Correction time
+                    temp_pop = self.createParallelPopulation(len(self.alts), 1, False)
+                    population[i] = temp_pop[0]
+                    print("{} ".format(i), end="")
+            print(" corrected.")
+
+            ###################################################################
+            ##                  CORRECTION OF INDIVIDUALS (CORRECT)          ##
+            ###################################################################
+            #print("{} - Positions ".format(it), end="")
+            #for i in range(0, len(population)):
+            #    if scores[i] < 0:
+                    # Correction time
+            #        temp_pop = self.v3_correction(population[i], all_chunks[i])
+            #        temp_pop = self.v2_correction(self.newPopulation[i],self.vehicles_db["Tesla Model X LR"]["Cons"])
+            #        population[i] = temp_pop
+            #        print("{} ".format(i), end="")
+            #print(" corrected.")
+
+            ###################################################################
+            ##                      REDRAW EACH ITERATION                    ##
+            ###################################################################
+
+            # Replot each iteration the original graphic w/ the best elem, scaled to adapt in the Y axis.
+            self.axis0.clear()
+            self.axis0.fill_between(self.real_chunk_sizes, self.alts, color='blue')
+            self.axis0.fill_between(self.real_chunk_sizes, self.alts, where=self.np_alts < -5, color='green')
+            self.axis0.fill_between(self.real_chunk_sizes, self.alts, where=self.np_alts > 5, color='red')
+            self.axis0.set_xlim(0, self.real_chunk_sizes[-1]); self.axis0.set_ylim(0,max(self.alts))
+            self.axis0.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
+            self.axis0.tick_params(axis='y', which='both', left=False, right=False, labelleft=False)
+
+            #self.axis1.clear()
+            y_avg = (max(self.alts) - min(self.alts)) / 2
+            self.axis0.plot(self.real_chunk_sizes, list(map(lambda x: x * (y_avg/2) + y_avg, self.bestElem))[0], 'y')
+            self.axis0.hlines(y_avg, min(self.real_chunk_sizes), max(self.real_chunk_sizes),'k')
+            #self.axis1.set_xlim(0, len(self.bestElem)); self.axis1.set_ylim(0,1)
+            self.canvas.draw()
+
+            file_out.flush()
+
+            ###################################################################
+
+        #print(scores)
+        self.addInfo("Best score: {} M.".format(round(self.bestScore/60),2))
+        file_out.close()
 
     def createPopulation(self, shape):
         pops = []
@@ -497,6 +826,16 @@ class TFM_Application():
         
         return scores, chunks
 
+    def v3_obtainScoresByTime(self, population):
+        scores = []; chunks = []
+
+        for elem in population:
+            lcl_score, lcl_chunk = self.v3_scoreByTime(elem)
+            scores.append(lcl_score)
+            chunks.append(lcl_chunk)
+
+        return scores, chunks
+
     def v3_score(self, candidate):
 
         chunks = []
@@ -530,6 +869,29 @@ class TFM_Application():
             return (-1, chunks)
         
         return (cons, chunks)
+
+    def v3_scoreByTime(self, candidate):
+        chunks = []; cons = 0
+
+        for i in range(0, len(self.alts)-1):
+            lcl_slope = ((self.alts[i+1] - self.alts[i])/(self.real_chunk_sizes[i+1] - self.real_chunk_sizes[i])) * 100
+
+            if i==0:
+                chunks.append(Chunk(0, candidate[0][0], lcl_slope, (self.real_chunk_sizes[i+1] - self.real_chunk_sizes[i])))
+            else:
+                chunks.append(Chunk(chunks[-1].v1, candidate[0][i], lcl_slope, (self.real_chunk_sizes[i+1] - self.real_chunk_sizes[i])))
+            
+            d = (chunks[-1].v0**2) - (2*chunks[-1].accel*chunks[-1].space)
+            time1 = ((-1 * chunks[-1].v0) - cmath.sqrt(d)) / chunks[-1].accel
+            time2 = ((-1 * chunks[-1].v0) + cmath.sqrt(d)) / chunks[-1].accel
+
+            chunks[-1].v1 = math.sqrt(max(0,(chunks[-1].v0**2) + (2*chunks[-1].accel*chunks[-1].space)))
+            chunks[-1].est_time_s = abs((chunks[-1].v1 - chunks[-1].v0) / chunks[-1].accel)
+
+            cons += chunks[-1].est_time_s
+
+        return (cons, chunks)
+
 
     def v2_score(self, profile, consumptions):
         chunks = []
