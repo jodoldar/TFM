@@ -7,6 +7,7 @@ from tkinter import Tk, StringVar, Frame, Text, END, Scrollbar
 from tkinter import ttk
 
 import matplotlib
+from numpy.lib.function_base import interp
 matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
@@ -24,6 +25,7 @@ import numpy as np
 from random import shuffle
 from copy import deepcopy
 from haversine import haversine, Unit
+from vincenty import vincenty
 import cmath, math
 
 import swagger_client
@@ -198,7 +200,9 @@ class TFM_Application():
         bias_dist = point_bias[self.point_bias_cb.get()]
 
         for i in range(1,len(coordinates)-1):
-            if haversine(filt_coords[-1], coordinates[i], unit=Unit.METERS) > bias_dist :
+            print(vincenty(filt_coords[-1], coordinates[i])*1000)
+            if vincenty(filt_coords[-1], coordinates[i])*1000 > bias_dist:
+#            if haversine(filt_coords[-1], coordinates[i], unit=Unit.METERS) > bias_dist :
                 filt_ids.append(i)
                 filt_coords.append(coordinates[i])
                 filt_alts.append(altitudes[i])
@@ -214,7 +218,9 @@ class TFM_Application():
         self.real_chunk_sizes = []
         self.real_chunk_sizes.append(0)
         for i in range(0, len(filt_coords)-1):
-            self.real_chunk_sizes.append(self.real_chunk_sizes[-1] + haversine(filt_coords[i], filt_coords[i+1], unit=Unit.METERS))
+            print(vincenty(filt_coords[i], filt_coords[i+1]))
+            self.real_chunk_sizes.append(self.real_chunk_sizes[-1] + vincenty(filt_coords[i], filt_coords[i+1])*1000)
+#            self.real_chunk_sizes.append(self.real_chunk_sizes[-1] + haversine(filt_coords[i], filt_coords[i+1], unit=Unit.METERS))
         
 
         self.axis0.clear()
@@ -230,7 +236,7 @@ class TFM_Application():
 
         ###################################################
         # Pre-check for the route validity
-        print("{} is greater than {}?".format(self.vehicles_db[self.vehicle_used.get()]["Capacity"] / self.vehicles_db[self.vehicle_used.get()]["Cons"][0], api_response.paths[0].time/3600000))
+        print("{}h is greater than {}h?".format(self.vehicles_db[self.vehicle_used.get()]["Capacity"] / self.vehicles_db[self.vehicle_used.get()]["Cons"][0], api_response.paths[0].time/3600000))
         if(self.vehicles_db[self.vehicle_used.get()]["Capacity"] / self.vehicles_db[self.vehicle_used.get()]["Cons"][0] >= api_response.paths[0].time/3600000):
             print("Calculating optimum map...")
         else:
@@ -260,6 +266,8 @@ class TFM_Application():
                 max_speed = 80
             elif road_block[2] == 'primary':
                 max_speed = 100
+            elif road_block[2] == 'unclassified':
+                max_speed = 75
             else:
                 max_speed = 120
             
@@ -631,6 +639,14 @@ class TFM_Application():
         self.bestElem = deepcopy(population[scores.index(minScores)])
         print("Best score before start is {} Sec.".format(self.bestScore))
 
+        y_avg = (max(self.alts) - min(self.alts)) / 4
+        bestChunk = all_chunks[scores.index(minScores)]
+        self.axis0.plot(self.real_chunk_sizes, list(map(lambda x: x * (y_avg/4) + y_avg, self.bestElem))[0], 'y')
+        self.axis0.plot(self.real_chunk_sizes, list(map(lambda x: x * (y_avg/4) + 3*y_avg, [0]+list(x.v1 for x in bestChunk))))
+        self.axis0.hlines(y_avg, min(self.real_chunk_sizes), max(self.real_chunk_sizes),'k')
+        #self.axis1.set_xlim(0, len(self.bestElem)); self.axis1.set_ylim(0,1)
+        self.canvas.draw()
+
         num_iterations = int(self.ga_iterations.get())
         is_even = len(population)%2 == 0
         print("Is the population even? {}".format(is_even))
@@ -748,11 +764,15 @@ class TFM_Application():
             self.axis0.tick_params(axis='y', which='both', left=False, right=False, labelleft=False)
 
             #self.axis1.clear()
-            y_avg = (max(self.alts) - min(self.alts)) / 2
+            y_avg = (max(self.alts) - min(self.alts)) / 4
+            bestChunk = all_chunks[scores.index(minScores)]
             self.axis0.plot(self.real_chunk_sizes, list(map(lambda x: x * (y_avg/2) + y_avg, self.bestElem))[0], 'y')
+            self.axis0.plot(self.real_chunk_sizes, [0]+list(x.v1 for x in bestChunk))
+            self.axis0.plot(self.real_chunk_sizes, self.road_speeds)
             self.axis0.hlines(y_avg, min(self.real_chunk_sizes), max(self.real_chunk_sizes),'k')
             #self.axis1.set_xlim(0, len(self.bestElem)); self.axis1.set_ylim(0,1)
             self.canvas.draw()
+            print([0]+list(x.v1 for x in bestChunk))
 
             file_out.flush()
 
@@ -885,7 +905,7 @@ class TFM_Application():
             time1 = ((-1 * chunks[-1].v0) - cmath.sqrt(d)) / chunks[-1].accel
             time2 = ((-1 * chunks[-1].v0) + cmath.sqrt(d)) / chunks[-1].accel
 
-            chunks[-1].v1 = math.sqrt(max(0,(chunks[-1].v0**2) + (2*chunks[-1].accel*chunks[-1].space)))
+            chunks[-1].v1 = math.sqrt(max(0,d))
             chunks[-1].est_time_s = abs((chunks[-1].v1 - chunks[-1].v0) / chunks[-1].accel)
 
             cons += chunks[-1].est_time_s
