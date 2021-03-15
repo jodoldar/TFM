@@ -200,7 +200,7 @@ class TFM_Application():
         bias_dist = point_bias[self.point_bias_cb.get()]
 
         for i in range(1,len(coordinates)-1):
-            print(vincenty(filt_coords[-1], coordinates[i])*1000)
+            #print(vincenty(filt_coords[-1], coordinates[i])*1000)
             if vincenty(filt_coords[-1], coordinates[i])*1000 > bias_dist:
 #            if haversine(filt_coords[-1], coordinates[i], unit=Unit.METERS) > bias_dist :
                 filt_ids.append(i)
@@ -218,32 +218,10 @@ class TFM_Application():
         self.real_chunk_sizes = []
         self.real_chunk_sizes.append(0)
         for i in range(0, len(filt_coords)-1):
-            print(vincenty(filt_coords[i], filt_coords[i+1]))
+            #print(vincenty(filt_coords[i], filt_coords[i+1]))
             self.real_chunk_sizes.append(self.real_chunk_sizes[-1] + vincenty(filt_coords[i], filt_coords[i+1])*1000)
 #            self.real_chunk_sizes.append(self.real_chunk_sizes[-1] + haversine(filt_coords[i], filt_coords[i+1], unit=Unit.METERS))
         
-
-        self.axis0.clear()
-        self.axis0.fill_between(self.real_chunk_sizes, filt_alts, color='blue')
-        self.axis0.fill_between(self.real_chunk_sizes, filt_alts, where=self.np_alts < -5, color='green')
-        self.axis0.fill_between(self.real_chunk_sizes, filt_alts, where=self.np_alts > 5, color='red')
-        self.axis0.set_xlim(0, self.real_chunk_sizes[-1]); self.axis0.set_ylim(0,max(filt_alts))
-        self.axis0.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
-        self.axis0.tick_params(axis='y', which='both', left=False, right=False, labelleft=False)
-        self.canvas.draw()
-
-        self.addInfo(text_info)
-
-        ###################################################
-        # Pre-check for the route validity
-        print("{}h is greater than {}h?".format(self.vehicles_db[self.vehicle_used.get()]["Capacity"] / self.vehicles_db[self.vehicle_used.get()]["Cons"][0], api_response.paths[0].time/3600000))
-        if(self.vehicles_db[self.vehicle_used.get()]["Capacity"] / self.vehicles_db[self.vehicle_used.get()]["Cons"][0] >= api_response.paths[0].time/3600000):
-            print("Calculating optimum map...")
-        else:
-            print("The route is not suitable for the selected car.")
-            return
-        ###################################################
-
         ###################################################
         # Calculate cruise accelerations
         # Cruise[A,B,C,D,E] -> A:[0-20], B:[21-40], C:[41-70], D:[71-100], E:[101-120]
@@ -271,9 +249,33 @@ class TFM_Application():
             else:
                 max_speed = 120
             
-            for i in range(road_block[0], road_block[1]-1):
+            for i in range(road_block[0], road_block[1]):
                 if i in filt_ids:
                     self.road_speeds[filt_ids.index(i)] = max_speed
+
+        self.axis0.clear()
+        self.axis0.fill_between(self.real_chunk_sizes, filt_alts, color='blue')
+        self.axis0.fill_between(self.real_chunk_sizes, filt_alts, where=self.np_alts < -5, color='green')
+        self.axis0.fill_between(self.real_chunk_sizes, filt_alts, where=self.np_alts > 5, color='red')
+        self.axis0.plot(self.real_chunk_sizes, self.road_speeds)
+        self.axis0.set_xlim(0, self.real_chunk_sizes[-1]); self.axis0.set_ylim(0,max(filt_alts))
+        self.axis0.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
+        self.axis0.tick_params(axis='y', which='both', left=False, right=False, labelleft=False)
+        self.canvas.draw()
+
+        self.addInfo(text_info)
+
+        ###################################################
+        # Pre-check for the route validity
+        print("{}h is greater than {}h?".format(self.vehicles_db[self.vehicle_used.get()]["Capacity"] / self.vehicles_db[self.vehicle_used.get()]["Cons"][0], api_response.paths[0].time/3600000))
+        if(self.vehicles_db[self.vehicle_used.get()]["Capacity"] / self.vehicles_db[self.vehicle_used.get()]["Cons"][0] >= api_response.paths[0].time/3600000):
+            print("Calculating optimum map...")
+        else:
+            print("The route is not suitable for the selected car.")
+            return
+        ###################################################
+
+        
 
         self.route_info_available = True
 
@@ -627,7 +629,7 @@ class TFM_Application():
         file_out = open("tfm.out", "w")
         ###################################################
         # Creating population
-        population = self.createParallelPopulation(len(self.alts), 100)
+        population = self.createParallelPopulation(len(self.alts), 200)
 
         # Obtain initial scores
         all_chunks = []
@@ -641,8 +643,9 @@ class TFM_Application():
 
         y_avg = (max(self.alts) - min(self.alts)) / 4
         bestChunk = all_chunks[scores.index(minScores)]
-        self.axis0.plot(self.real_chunk_sizes, list(map(lambda x: x * (y_avg/4) + y_avg, self.bestElem))[0], 'y')
-        self.axis0.plot(self.real_chunk_sizes, list(map(lambda x: x * (y_avg/4) + 3*y_avg, [0]+list(x.v1 for x in bestChunk))))
+        self.axis0.plot(self.real_chunk_sizes, list(map(lambda x: x * (y_avg/2) + y_avg, self.bestElem))[0], 'y')
+        self.axis0.plot(self.real_chunk_sizes, [0]+list(x.v1 for x in bestChunk))
+        self.axis0.plot(self.real_chunk_sizes, self.road_speeds)
         self.axis0.hlines(y_avg, min(self.real_chunk_sizes), max(self.real_chunk_sizes),'k')
         #self.axis1.set_xlim(0, len(self.bestElem)); self.axis1.set_ylim(0,1)
         self.canvas.draw()
@@ -729,12 +732,19 @@ class TFM_Application():
             ##                  CORRECTION OF INDIVIDUALS (REPLACE)          ##
             ###################################################################
             print("{} - Positions ".format(it), end="")
+            invalid_count = len([x for x in scores if x<0])
+            good_elems = []
             for i in range(0, len(population)):
-                if scores[i] < 0:
-                    # Correction time
-                    temp_pop = self.createParallelPopulation(len(self.alts), 1, False)
-                    population[i] = temp_pop[0]
-                    print("{} ".format(i), end="")
+                if scores[i] >= 0:
+                    good_elems.append(population[i])
+
+            # Correction time
+            temp_pop = self.createParallelPopulation(len(self.alts), invalid_count, False)
+            for i in range(invalid_count):
+                good_elems.append(temp_pop[i])
+                print("{} ".format(i), end="")
+
+            population = good_elems[:]
             print(" corrected.")
 
             ###################################################################
@@ -743,7 +753,7 @@ class TFM_Application():
             #print("{} - Positions ".format(it), end="")
             #for i in range(0, len(population)):
             #    if scores[i] < 0:
-                    # Correction time
+            #        # Correction time
             #        temp_pop = self.v3_correction(population[i], all_chunks[i])
             #        temp_pop = self.v2_correction(self.newPopulation[i],self.vehicles_db["Tesla Model X LR"]["Cons"])
             #        population[i] = temp_pop
@@ -772,7 +782,7 @@ class TFM_Application():
             self.axis0.hlines(y_avg, min(self.real_chunk_sizes), max(self.real_chunk_sizes),'k')
             #self.axis1.set_xlim(0, len(self.bestElem)); self.axis1.set_ylim(0,1)
             self.canvas.draw()
-            print([0]+list(x.v1 for x in bestChunk))
+            #print([0]+list(x.v1 for x in bestChunk))
 
             file_out.flush()
 
@@ -802,10 +812,10 @@ class TFM_Application():
             createSubjectsS=partial(v3_create_subjects_par, profile=self.alts, real_chunk_sizes=self.real_chunk_sizes, vehicle_used=self.vehicles_db[self.vehicle_used.get()], roads=self.road_speeds)
             candidates = self.pool.map(createSubjectsS,list(range(30)))
             for elem in candidates:
-                if (elem[0] != -1):
+                if (elem[0] < 0):
                     pops.append(elem[1])
                     if verbose:
-                        print(" {}".format(len(pops)), end='', flush=True)
+                        print(" {}-{}".format(len(pops), elem[0]), end='', flush=True)
                 else:
                     print(" A", end='')
         if verbose:
@@ -909,6 +919,10 @@ class TFM_Application():
             chunks[-1].est_time_s = abs((chunks[-1].v1 - chunks[-1].v0) / chunks[-1].accel)
 
             cons += chunks[-1].est_time_s
+
+        if (not self.v3_checkValid(chunks)):
+#            print("Check correctness failed")
+            return (-1, chunks)
 
         return (cons, chunks)
 
@@ -1039,8 +1053,8 @@ class TFM_Application():
     #   - In any moment the v1 speed is higher than the road limit.
     def v3_checkValid(self, chunks):
         for i in range(len(chunks)):
-            if (chunks[i].v1 > self.road_speeds[i]):
-                #print("Profile not valid. {} is greater than {}. (v0: {}, v1: {}, accel: {}, slp:{}, dist: {}".format(chunks[i].v1, self.road_speeds[i], chunks[i].v0, chunks[i].v1, chunks[i].accel, chunks[i].slope, self.real_chunk_sizes[i]))
+            if (chunks[i].v1 > self.road_speeds[i][0]):
+#                print("Profile not valid at {}. {} is greater than {}. (v0: {}, v1: {}, accel: {}, slp:{}, dist: {}".format(i, chunks[i].v1, self.road_speeds[i][0], chunks[i].v0, chunks[i].v1, chunks[i].accel, chunks[i].slope, self.real_chunk_sizes[i]))
                 return False
         return True
 

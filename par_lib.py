@@ -59,11 +59,10 @@ def v2_score_par(alts, profile, consumptions, real_chunk_sizes, cruise, road_spe
 #   - In any moment the v1 speed is higher than the road limit.
 def v2_check_valid_par(chunks, road_speeds):
     for i in range(len(chunks)):
-        if (chunks[i].v1 > road_speeds[i]):
-            #print("Profile not valid. {} is greater than {}. (v0: {}, v1: {}, accel: {}, slp:{}, dist: {}".format(chunks[i].v1, self.road_speeds[i], chunks[i].v0, chunks[i].v1, chunks[i].accel, chunks[i].slope, self.real_chunk_sizes[i]))
+        if (chunks[i].v1 > road_speeds[i][0]):
+            #print("Profile not valid. {} is greater than {}. (v0: {}, v1: {}, accel: {}, slp:{}, dist: {}".format(chunks[i].v1, road_speeds[i][0], chunks[i].v0, chunks[i].v1, chunks[i].accel, chunks[i].slope, 0))
             return False
     return True
-
 
 def v3_create_subjects_par(it, profile, real_chunk_sizes, vehicle_used, roads):
     first = np.random.rand(1, len(profile)) - 0.5
