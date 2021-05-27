@@ -202,7 +202,7 @@ class TFM_Application():
         for i in range(1,len(coordinates)-1):
             #print(vincenty(filt_coords[-1], coordinates[i])*1000)
             if vincenty(filt_coords[-1], coordinates[i])*1000 > bias_dist:
-#            if haversine(filt_coords[-1], coordinates[i], unit=Unit.METERS) > bias_dist :
+            #if haversine(filt_coords[-1], coordinates[i], unit=Unit.METERS) > bias_dist :
                 filt_ids.append(i)
                 filt_coords.append(coordinates[i])
                 filt_alts.append(altitudes[i])
@@ -220,7 +220,7 @@ class TFM_Application():
         for i in range(0, len(filt_coords)-1):
             #print(vincenty(filt_coords[i], filt_coords[i+1]))
             self.real_chunk_sizes.append(self.real_chunk_sizes[-1] + vincenty(filt_coords[i], filt_coords[i+1])*1000)
-#            self.real_chunk_sizes.append(self.real_chunk_sizes[-1] + haversine(filt_coords[i], filt_coords[i+1], unit=Unit.METERS))
+            #self.real_chunk_sizes.append(self.real_chunk_sizes[-1] + haversine(filt_coords[i], filt_coords[i+1], unit=Unit.METERS))
         
         ###################################################
         # Calculate cruise accelerations
@@ -301,20 +301,26 @@ class TFM_Application():
         file_out = open("tfm.out", "w")
         ###################################################
         # Creating population
-        population = self.createParallelPopulation(len(self.alts), 100)
-        #print(population)
+        population = self.createParallelPopulation(len(self.alts), 200)
 
         # Obtain initial scores
         all_chunks = []
         scores, all_chunks = self.v3_obtainScores(population)
-        #scores = self.v3_score(self.alts, population[0])
-        #scores = self.v2_obtainScores(population, self.vehicles_db["Tesla Model X LR"]["Cons"])
 
         print(scores)
         minScores = float(min([n for n in scores if n>0], default=1000000))
         self.bestScore = minScores
         self.bestElem = deepcopy(population[scores.index(minScores)])
         print("Best score before start is {} W.".format(self.bestScore))
+
+        y_avg = (max(self.alts) - min(self.alts)) / 4
+        bestChunk = all_chunks[scores.index(minScores)]
+        self.axis0.plot(self.real_chunk_sizes, list(map(lambda x: x * (y_avg/2) + y_avg, self.bestElem))[0], 'y')
+        self.axis0.plot(self.real_chunk_sizes, [0]+list(x.v1 for x in bestChunk))
+        self.axis0.plot(self.real_chunk_sizes, self.road_speeds)
+        self.axis0.hlines(y_avg, min(self.real_chunk_sizes), max(self.real_chunk_sizes),'k')
+        self.canvas.draw()
+        self.centerFrame.update_idletasks()
 
         num_iterations = int(self.ga_iterations.get())
         is_even = len(population)%2 == 0
@@ -363,9 +369,7 @@ class TFM_Application():
 
             # Replace worst population
             for pos in range(0, max_candidates):
-                population[len(ngr) - 1 - pos] = children[pos]
-
-            self.newPopulation[:] = population
+                population[sort_positions[-1-pos]] = children[pos]
 
             ###################################################################
             ##                          APPLY MUTATION                       ##
@@ -375,6 +379,8 @@ class TFM_Application():
             for i in range(0, len(population)):
                 if (np.random.rand() > 0.9):
                     self.mutate_v3(i, population)
+            
+            #self.newPopulation[:] = population
 
             ###################################################################
             ##                  CORRECTION OF INDIVIDUALS (REPLACE)          ##
@@ -404,11 +410,11 @@ class TFM_Application():
             ##                         GET BEST SCORE                        ##
             ###################################################################
 
-            population[:] = self.newPopulation
-            self.newPopulation = []
+            #population[:] = self.newPopulation
+            #self.newPopulation = []
 
             scores, all_chunks = self.v3_obtainScores(population)
-            print(scores, end='')
+            #print(scores, end='')
             minScores = min([n for n in scores if n>0], default=1000000)
             print(" {} ¿{} < {}?".format(minScores, minScores, self.bestScore))
             if (minScores < self.bestScore):
@@ -421,27 +427,34 @@ class TFM_Application():
             ###################################################################
             ##                  CORRECTION OF INDIVIDUALS (REPLACE)          ##
             ###################################################################
-            #print("{} - Positions ".format(it), end="")
-            #for i in range(0, len(population)):
-            #    if scores[i] < 0:
-            #        # Correction time
-            #        temp_pop = self.createParallelPopulation(len(self.alts), 1, False)
-            #        population[i] = temp_pop[0]
-            #        print("{} ".format(i), end="")
-            #print(" corrected.")
+            print("{} - Positions ".format(it), end="")
+            invalid_count = len([x for x in scores if x<0])
+            good_elems = []
+            for i in range(0, len(population)):
+                if scores[i] >= 0:
+                    good_elems.append(population[i])
+            
+            # Correction time
+            temp_pop = self.createParallelPopulation(len(self.alts), invalid_count, False)
+            for i in range(invalid_count):
+                good_elems.append(temp_pop[i])
+                print("{} ".format(i), end="")
+            
+            population = good_elems[:]
+            print(" corrected.")
 
             ###################################################################
             ##                  CORRECTION OF INDIVIDUALS (CORRECT)          ##
             ###################################################################
-            print("{} - Positions ".format(it), end="")
-            for i in range(0, len(population)):
-                if scores[i] < 0:
-                    # Correction time
-                    temp_pop = self.v3_correction(population[i], all_chunks[i])
-            #        temp_pop = self.v2_correction(self.newPopulation[i],self.vehicles_db["Tesla Model X LR"]["Cons"])
-                    population[i] = temp_pop
-                    print("{} ".format(i), end="")
-            print(" corrected.")
+            #print("{} - Positions ".format(it), end="")
+            #for i in range(0, len(population)):
+            #    if scores[i] < 0:
+            #        # Correction time
+            #        temp_pop = self.v3_correction(population[i], all_chunks[i])
+            ##        temp_pop = self.v2_correction(self.newPopulation[i],self.vehicles_db["Tesla Model X LR"]["Cons"])
+            #        population[i] = temp_pop
+            #        print("{} ".format(i), end="")
+            #print(" corrected.")
 
             ###################################################################
             ##                      REDRAW EACH ITERATION                    ##
@@ -458,10 +471,13 @@ class TFM_Application():
 
             #self.axis1.clear()
             y_avg = (max(self.alts) - min(self.alts)) / 2
+            bestChunk = all_chunks[scores.index(minScores)]
             self.axis0.plot(self.real_chunk_sizes, list(map(lambda x: x * (y_avg/2) + y_avg, self.bestElem))[0], 'y')
+            self.axis0.plot(self.real_chunk_sizes, [0]+list(x.v1 for x in bestChunk))
+            self.axis0.plot(self.real_chunk_sizes, self.road_speeds)
             self.axis0.hlines(y_avg, min(self.real_chunk_sizes), max(self.real_chunk_sizes),'k')
-            #self.axis1.set_xlim(0, len(self.bestElem)); self.axis1.set_ylim(0,1)
             self.canvas.draw()
+            self.root.update()
 
             file_out.flush()
 
@@ -478,12 +494,20 @@ class TFM_Application():
         population = self.createParallelPopulation(len(self.alts), 100)
 
         # Obtain initial scores
-        all_chunks = []
-        scoreKwh, chunksKwh = self.v3_obtainScores(population)
-        scoreSec, chunksSec = self.v3_obtainScoresByTime(population)
+        all_chunks = []; scoreKwhNorm = []; scoreTNorm = []
+        scoreKwh, scoreSec, all_chunks = self.v3_obtainScoresByMix(population)
 
-        scores = list((np.array(scoreKwh)+np.array(scoreSec))/2)
-        #scores, all_chunks = self.v3_obtainScoresByTime(population)
+        # Normalize different scores before compare them
+        max_kwh = max(scoreKwh); max_sec = max(scoreSec)
+        for it_sc in range(0, len(scoreKwh)-1):
+            if (scoreKwh[it_sc] >= 0 and scoreSec[it_sc] >= 0):
+                scoreKwhNorm.append(interp(scoreKwh[it_sc],[0,max_kwh],[0,10]))
+                scoreTNorm.append(interp(scoreSec[it_sc],[0,max_sec],[0,10]))
+            else:
+                scoreKwhNorm.append(-1)
+                scoreTNorm.append(-1)
+
+        scores = list((np.array(scoreKwhNorm)+np.array(scoreTNorm))/2)
 
         print(scores)
         minScores = float(min([n for n in scores if n>0], default=1000000))
@@ -557,10 +581,20 @@ class TFM_Application():
 
             population[:] = self.newPopulation
             self.newPopulation = []
-            scoreKwh, chunksKwh = self.v3_obtainScores(population)
-            scoreSec, chunksSec = self.v3_obtainScoresByTime(population)
+            all_chunks = []; scoreKwhNorm = []; scoreTNorm = []
+            scoreKwh, scoreSec, all_chunks = self.v3_obtainScoresByMix(population)
 
-            scores = list((np.array(scoreKwh)+np.array(scoreSec))/2)
+            # Normalize different scores before compare them
+            max_kwh = max(scoreKwh); max_sec = max(scoreSec)
+            for it_sc in range(0, len(population)):
+                if (scoreKwh[it_sc] >= 0 and scoreSec[it_sc] >= 0):
+                    scoreKwhNorm.append(interp(scoreKwh[it_sc],[0,max_kwh],[0,10]))
+                    scoreTNorm.append(interp(scoreSec[it_sc],[0,max_sec],[0,10]))
+                else:
+                    scoreKwhNorm.append(-1)
+                    scoreTNorm.append(-1)
+
+            scores = list((np.array(scoreKwhNorm)+np.array(scoreTNorm))/2)
             #scores, all_chunks = self.v3_obtainScoresByTime(population)
             print(scores, end='')
             minScores = min([n for n in scores if n>0], default=1000000)
@@ -576,12 +610,19 @@ class TFM_Application():
             ##                  CORRECTION OF INDIVIDUALS (REPLACE)          ##
             ###################################################################
             print("{} - Positions ".format(it), end="")
+            invalid_count = len([x for x in scores if x<0])
+            good_elems = []
             for i in range(0, len(population)):
-                if scores[i] < 0:
-                    # Correction time
-                    temp_pop = self.createParallelPopulation(len(self.alts), 1, False)
-                    population[i] = temp_pop[0]
-                    print("{} ".format(i), end="")
+                if scores[i] >= 0:
+                    good_elems.append(population[i])
+            
+            # Correction time
+            temp_pop = self.createParallelPopulation(len(self.alts), invalid_count, False)
+            for i in range(invalid_count):
+                good_elems.append(temp_pop[i])
+                print("{} ".format(i), end="")
+            
+            population = good_elems[:]
             print(" corrected.")
 
             ###################################################################
@@ -612,10 +653,13 @@ class TFM_Application():
 
             #self.axis1.clear()
             y_avg = (max(self.alts) - min(self.alts)) / 2
+            bestChunk = all_chunks[scores.index(minScores)]
             self.axis0.plot(self.real_chunk_sizes, list(map(lambda x: x * (y_avg/2) + y_avg, self.bestElem))[0], 'y')
+            self.axis0.plot(self.real_chunk_sizes, [0]+list(x.v1 for x in bestChunk))
+            self.axis0.plot(self.real_chunk_sizes, self.road_speeds)
             self.axis0.hlines(y_avg, min(self.real_chunk_sizes), max(self.real_chunk_sizes),'k')
-            #self.axis1.set_xlim(0, len(self.bestElem)); self.axis1.set_ylim(0,1)
             self.canvas.draw()
+            self.root.update()
 
             file_out.flush()
 
@@ -647,7 +691,6 @@ class TFM_Application():
         self.axis0.plot(self.real_chunk_sizes, [0]+list(x.v1 for x in bestChunk))
         self.axis0.plot(self.real_chunk_sizes, self.road_speeds)
         self.axis0.hlines(y_avg, min(self.real_chunk_sizes), max(self.real_chunk_sizes),'k')
-        #self.axis1.set_xlim(0, len(self.bestElem)); self.axis1.set_ylim(0,1)
         self.canvas.draw()
 
         num_iterations = int(self.ga_iterations.get())
@@ -812,12 +855,10 @@ class TFM_Application():
             createSubjectsS=partial(v3_create_subjects_par, profile=self.alts, real_chunk_sizes=self.real_chunk_sizes, vehicle_used=self.vehicles_db[self.vehicle_used.get()], roads=self.road_speeds)
             candidates = self.pool.map(createSubjectsS,list(range(30)))
             for elem in candidates:
-                if (elem[0] < 0):
+                if (elem[0] > 0):
                     pops.append(elem[1])
                     if verbose:
                         print(" {}-{}".format(len(pops), elem[0]), end='', flush=True)
-                else:
-                    print(" A", end='')
         if verbose:
             print("")
 
@@ -852,7 +893,6 @@ class TFM_Application():
             lcl_score, lcl_chunk = self.v3_score(elem)
             scores.append(lcl_score)
             chunks.append(lcl_chunk)
-            #scores.append(self.v3_score(elem))
         
         return scores, chunks
 
@@ -866,14 +906,22 @@ class TFM_Application():
 
         return scores, chunks
 
-    def v3_score(self, candidate):
+    def v3_obtainScoresByMix(self, population):
+        scoresEle = []; scoresT = []; chunks = [];
 
-        chunks = []
-        cons = 0
+        for elem in population:
+            lcl_scoreEle, lcl_scoreT, lcl_chunk = self.v3_scoreByMix(elem)
+            scoresEle.append(lcl_scoreEle)
+            scoresT.append(lcl_scoreT)
+            chunks.append(lcl_chunk)
+        
+        return scoresEle, scoresT, chunks
+
+    def v3_score(self, candidate):
+        chunks = []; cons = 0
 
         for i in range(0, len(self.alts) - 1):
             lcl_slope = ((self.alts[i+1] - self.alts[i])/(self.real_chunk_sizes[i+1] - self.real_chunk_sizes[i])) * 100
-            #print("{:0.1f}-".format(lcl_slope), end='', flush=True)
 
             if i==0:
                 chunks.append(Chunk(0, candidate[0][0], lcl_slope, (self.real_chunk_sizes[i+1] - self.real_chunk_sizes[i])))
@@ -889,11 +937,8 @@ class TFM_Application():
             chunks[-1].est_time_s = abs((chunks[-1].v1 - chunks[-1].v0) / chunks[-1].accel)
 
             chunks[-1].calculate_CPEM_kwh_pro(self.vehicles_db[self.vehicle_used.get()])
-            if chunks[-1].est_cons[0] > 0:
-                cons += chunks[-1].est_cons[0]
-            #print(" --> {}".format(chunks[-1].est_cons))
-
-        #print("Cons (kWh): {}".format(cons/1000))
+            #if chunks[-1].est_cons[0] > 0:
+            cons += chunks[-1].est_cons[0]
 
         if (not self.v3_checkValid(chunks)):
             return (-1, chunks)
@@ -911,7 +956,7 @@ class TFM_Application():
             else:
                 chunks.append(Chunk(chunks[-1].v1, candidate[0][i], lcl_slope, (self.real_chunk_sizes[i+1] - self.real_chunk_sizes[i])))
             
-            d = (chunks[-1].v0**2) - (2*chunks[-1].accel*chunks[-1].space)
+            d = (chunks[-1].v0**2) + (2*chunks[-1].accel*chunks[-1].space)
             time1 = ((-1 * chunks[-1].v0) - cmath.sqrt(d)) / chunks[-1].accel
             time2 = ((-1 * chunks[-1].v0) + cmath.sqrt(d)) / chunks[-1].accel
 
@@ -921,10 +966,33 @@ class TFM_Application():
             cons += chunks[-1].est_time_s
 
         if (not self.v3_checkValid(chunks)):
-#            print("Check correctness failed")
+            #print("Check correctness failed")
             return (-1, chunks)
 
         return (cons, chunks)
+
+    def v3_scoreByMix(self, candidate):
+        chunks = []; consEle = 0; consT = 0
+
+        for i in range(0, len(self.alts)-1):
+            lcl_slope = ((self.alts[i+1] - self.alts[i])/(self.real_chunk_sizes[i+1] - self.real_chunk_sizes[i])) * 100
+
+            if i==0:
+                chunks.append(Chunk(0, candidate[0][0], lcl_slope, (self.real_chunk_sizes[i+1] - self.real_chunk_sizes[i])))
+            else:
+                chunks.append(Chunk(chunks[-1].v1, candidate[0][i], lcl_slope, (self.real_chunk_sizes[i+1] - self.real_chunk_sizes[i])))
+            
+            chunks[-1].v1 = math.sqrt(max(0,(chunks[-1].v0**2) + (2*chunks[-1].accel*chunks[-1].space)))
+            chunks[-1].est_time_s = abs((chunks[-1].v1 - chunks[-1].v0) / chunks[-1].accel)
+            chunks[-1].calculate_CPEM_kwh_pro(self.vehicles_db[self.vehicle_used.get()])
+
+            consEle += chunks[-1].est_cons[0]
+            consT += chunks[-1].est_time_s
+
+        if (not self.v3_checkValid(chunks)):
+            return(-1, -1, chunks)
+
+        return (consEle, consT, chunks)
 
 
     def v2_score(self, profile, consumptions):
@@ -1051,10 +1119,12 @@ class TFM_Application():
 
     # In this function, it has to be checked different facts:
     #   - In any moment the v1 speed is higher than the road limit.
+    #   - The vehicle is at least at half of the speed limit.
     def v3_checkValid(self, chunks):
         for i in range(len(chunks)):
             if (chunks[i].v1 > self.road_speeds[i][0]):
-#                print("Profile not valid at {}. {} is greater than {}. (v0: {}, v1: {}, accel: {}, slp:{}, dist: {}".format(i, chunks[i].v1, self.road_speeds[i][0], chunks[i].v0, chunks[i].v1, chunks[i].accel, chunks[i].slope, self.real_chunk_sizes[i]))
+                return False
+            elif (i > 10 and self.road_speeds[i][0] > 80 and self.road_speeds[i-1][0] > 80 and chunks[i].v1 < self.road_speeds[i][0]/4):
                 return False
         return True
 

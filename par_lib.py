@@ -60,12 +60,13 @@ def v2_score_par(alts, profile, consumptions, real_chunk_sizes, cruise, road_spe
 def v2_check_valid_par(chunks, road_speeds):
     for i in range(len(chunks)):
         if (chunks[i].v1 > road_speeds[i][0]):
-            #print("Profile not valid. {} is greater than {}. (v0: {}, v1: {}, accel: {}, slp:{}, dist: {}".format(chunks[i].v1, road_speeds[i][0], chunks[i].v0, chunks[i].v1, chunks[i].accel, chunks[i].slope, 0))
+            return False
+        elif (i > 10 and road_speeds[i][0] > 80 and road_speeds[i-1][0] > 80 and chunks[i].v1 < road_speeds[i][0]/4):
             return False
     return True
 
 def v3_create_subjects_par(it, profile, real_chunk_sizes, vehicle_used, roads):
-    first = np.random.rand(1, len(profile)) - 0.5
+    first = np.random.rand(1, len(profile))*2 - 1
     return (v3_score_par(profile, first, real_chunk_sizes, vehicle_used, roads) ,first)
 
 def v3_score_par(profile, candidate, real_chunk_sizes, vehicle_used, roads):
