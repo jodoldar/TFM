@@ -267,8 +267,9 @@ class TFM_Application():
 
         ###################################################
         # Pre-check for the route validity
-        print("{}h is greater than {}h?".format(self.vehicles_db[self.vehicle_used.get()]["Capacity"] / self.vehicles_db[self.vehicle_used.get()]["Cons"][0], api_response.paths[0].time/3600000))
-        if(self.vehicles_db[self.vehicle_used.get()]["Capacity"] / self.vehicles_db[self.vehicle_used.get()]["Cons"][0] >= api_response.paths[0].time/3600000):
+        avg_cons = (self.vehicles_db[self.vehicle_used.get()]["Cons"][0] + self.vehicles_db[self.vehicle_used.get()]["Cons"][1])/2
+        print("{}h is greater than {}h?".format(self.vehicles_db[self.vehicle_used.get()]["Capacity"] / avg_cons, api_response.paths[0].time/3600000))
+        if(self.vehicles_db[self.vehicle_used.get()]["Capacity"] / avg_cons >= api_response.paths[0].time/3600000):
             print("Calculating optimum map...")
         else:
             print("The route is not suitable for the selected car.")
@@ -598,6 +599,7 @@ class TFM_Application():
             #scores, all_chunks = self.v3_obtainScoresByTime(population)
             print(scores, end='')
             minScores = min([n for n in scores if n>0], default=1000000)
+            min_index = scores.index(minScores)
             print(" {} ¿{} < {}?".format(minScores, minScores, self.bestScore))
             if (minScores < self.bestScore):
                 print("Update: {}, pos of. {}".format(minScores, scores.index(minScores)))
@@ -666,7 +668,7 @@ class TFM_Application():
             ###################################################################
 
         #print(scores)
-        self.addInfo("Best score: {} M.".format(round(self.bestScore/60),2))
+        self.addInfo("Best score: {}/10 ({} kWh, {} Min.).".format(self.bestScore,round(scoreKwh[min_index]/360000), round(scoreSec[min_index]/60)))
         file_out.close()
 
     def getOptimumProfileTime(self):
