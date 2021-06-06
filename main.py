@@ -515,6 +515,8 @@ class TFM_Application():
         self.bestScore = minScores
         self.bestElem = deepcopy(population[scores.index(minScores)])
         print("Best score before start is {} Sec.".format(self.bestScore))
+        iNumOfConsecutiveStuck = 0
+        iPrevScore = self.bestScore
 
         num_iterations = int(self.ga_iterations.get())
         is_even = len(population)%2 == 0
@@ -640,6 +642,32 @@ class TFM_Application():
             #        print("{} ".format(i), end="")
             #print(" corrected.")
 
+
+            ###################################################################
+            ##                              DOOMSDAY                         ##
+            ###################################################################
+            if (iPrevScore == self.bestScore):
+                iNumOfConsecutiveStuck += 1
+            else:
+                iNumOfConsecutiveStuck = 0
+
+            if (iNumOfConsecutiveStuck >= 15):
+                print("15 Stuck iterations. Resetting population.", end="")
+                
+                good_elems2 = []
+                good_elems2.append(self.bestElem)
+
+                new_pops = self.createParallelPopulation(len(self.alts), 99,False)
+                for i in range(len(new_pops)):
+                    good_elems2.append(new_pops[i])
+
+                population = good_elems2[:]
+                iNumOfConsecutiveStuck = 0
+
+                print(" DONE.")
+
+            iPrevScore = self.bestScore
+
             ###################################################################
             ##                      REDRAW EACH ITERATION                    ##
             ###################################################################
@@ -670,6 +698,9 @@ class TFM_Application():
         #print(scores)
         self.addInfo("Best score: {}/10 ({} kWh, {} Min.).".format(self.bestScore,round(scoreKwh[min_index]/360000), round(scoreSec[min_index]/60)))
         file_out.close()
+
+        print("Best option: {}/{}".format(self.real_chunk_sizes, self.bestElem))
+        print("Speeds: {}".format([0]+list(x.v1 for x in bestChunk)))
 
     def getOptimumProfileTime(self):
         file_out = open("tfm.out", "w")
