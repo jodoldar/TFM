@@ -280,7 +280,7 @@ class TFM_Application():
 
         self.route_info_available = True
 
-    def getIOptimumProfile(self):
+    def getIOptimumProfile(self, num_elems=30):
         print("Info? {}, Profile? {}".format(self.route_info_available, self.ga_method_cb.current()))
 
         if (self.route_info_available == False):
@@ -288,21 +288,21 @@ class TFM_Application():
 
         if self.route_info_available: #Second filter
             if self.ga_method_cb.current() == 0:
-                self.getOptimumProfile()
+                self.getOptimumProfile(num_elems)
             elif self.ga_method_cb.current() == 1:
-                self.getOptimumProfileTime()
+                self.getOptimumProfileTime(num_elems)
             else:
-                self.getOptimumProfileMixed()
+                self.getOptimumProfileMixed(num_elems)
         else:
             print("Mala suerte amigo")
 
 
 
-    def getOptimumProfile(self):
+    def getOptimumProfile(self, num_elems):
         file_out = open("tfm.out", "w")
         ###################################################
         # Creating population
-        population = self.createParallelPopulation(len(self.alts), 200)
+        population = self.createParallelPopulation(len(self.alts), num_elems)
 
         # Obtain initial scores
         all_chunks = []
@@ -313,6 +313,8 @@ class TFM_Application():
         self.bestScore = minScores
         self.bestElem = deepcopy(population[scores.index(minScores)])
         print("Best score before start is {} W.".format(self.bestScore))
+        iNumOfConsecutiveStuck = 0
+        iPrevScore = self.bestScore
 
         y_avg = (max(self.alts) - min(self.alts)) / 4
         bestChunk = all_chunks[scores.index(minScores)]
@@ -422,6 +424,37 @@ class TFM_Application():
                 print("Update: {}, pos of. {}".format(minScores, scores.index(minScores)))
                 self.bestScore = minScores
                 self.bestElem = deepcopy(population[scores.index(minScores)])
+            
+            window= np.ones(int(10))/float(10)
+            rl_avg = np.convolve(self.bestElem[0], window, 'same')
+
+            pyp.close('all')
+            pyp.figure()
+            
+            pyp.subplot(211)
+            pyp.plot(self.real_chunk_sizes, self.bestElem[0], lw=0.5, color='black')
+            pyp.plot(self.real_chunk_sizes, rl_avg, lw=2.0, color='blue')
+            pyp.hlines(0, 0, self.real_chunk_sizes[-1], colors='black', linestyles='--')
+            pyp.xlim(0, self.real_chunk_sizes[-1])
+            pyp.ylabel('Accel.')
+            pyp.xlabel('Dist (m)')
+            
+            pyp.subplot(212)
+
+            pyp.fill_between(self.real_chunk_sizes, self.alts, color='blue')
+            pyp.fill_between(self.real_chunk_sizes, self.alts, where=self.np_alts < -5, color='green')
+            pyp.fill_between(self.real_chunk_sizes, self.alts, where=self.np_alts > 5, color='red')
+            y_avg = (max(self.alts) - min(self.alts)) / 2
+            bestChunk = all_chunks[scores.index(minScores)]
+            pyp.plot(self.real_chunk_sizes, list(map(lambda x: x * (y_avg/2) + y_avg, self.bestElem))[0], 'y')
+            pyp.plot(self.real_chunk_sizes, [0]+list(x.v1 for x in bestChunk))
+            pyp.plot(self.real_chunk_sizes, self.road_speeds)
+            pyp.hlines(y_avg, min(self.real_chunk_sizes), max(self.real_chunk_sizes),'k')
+            pyp.xlabel('Dist (m)')
+            pyp.xlim(0, self.real_chunk_sizes[-1]); pyp.ylim(0,max(self.alts))
+            
+            pyp.show(False)
+
             #print("{}, {}".format(self.bestScore, sum(self.bestElem)))
             file_out.write("{},{},{}\n".format(it,self.bestScore, minScores))
 
@@ -457,6 +490,33 @@ class TFM_Application():
             #        print("{} ".format(i), end="")
             #print(" corrected.")
 
+
+            ###################################################################
+            ##                              DOOMSDAY                         ##
+            ###################################################################
+            if (iPrevScore == self.bestScore):
+                iNumOfConsecutiveStuck += 1
+            else:
+                iNumOfConsecutiveStuck = 0
+
+            if (iNumOfConsecutiveStuck >= math.floor(0.3*num_iterations)):
+                print("15 Stuck iterations. Resetting population.", end="")
+                
+                good_elems2 = []
+                good_elems2.append(self.bestElem)
+
+                new_pops = self.createParallelPopulation(len(self.alts), num_elems - 1, False)
+                for i in range(len(new_pops)):
+                    good_elems2.append(new_pops[i])
+
+                population = good_elems2[:]
+                iNumOfConsecutiveStuck = 0
+
+                print(" DONE.")
+
+            iPrevScore = self.bestScore
+
+
             ###################################################################
             ##                      REDRAW EACH ITERATION                    ##
             ###################################################################
@@ -488,11 +548,11 @@ class TFM_Application():
         self.addInfo("Best score: {} kWh".format(round(self.bestScore/3600),2))
         file_out.close()
 
-    def getOptimumProfileMixed(self):
+    def getOptimumProfileMixed(self, num_elems):
         file_out = open("tfm.out", "w")
         ###################################################
         # Creating population
-        population = self.createParallelPopulation(len(self.alts), 100)
+        population = self.createParallelPopulation(len(self.alts), num_elems)
 
         # Obtain initial scores
         all_chunks = []; scoreKwhNorm = []; scoreTNorm = []
@@ -607,6 +667,37 @@ class TFM_Application():
                 print("Update: {}, pos of. {}".format(minScores, scores.index(minScores)))
                 self.bestScore = minScores
                 self.bestElem = deepcopy(population[scores.index(minScores)])
+
+            window= np.ones(int(10))/float(10)
+            rl_avg = np.convolve(self.bestElem[0], window, 'same')
+
+            pyp.close('all')
+            pyp.figure()
+            
+            pyp.subplot(211)
+            pyp.plot(self.real_chunk_sizes, self.bestElem[0], lw=0.5, color='black')
+            pyp.plot(self.real_chunk_sizes, rl_avg, lw=2.0, color='blue')
+            pyp.hlines(0, 0, self.real_chunk_sizes[-1], colors='black', linestyles='--')
+            pyp.xlim(0, self.real_chunk_sizes[-1])
+            pyp.ylabel('Accel.')
+            pyp.xlabel('Dist (m)')
+            
+            pyp.subplot(212)
+
+            pyp.fill_between(self.real_chunk_sizes, self.alts, color='blue')
+            pyp.fill_between(self.real_chunk_sizes, self.alts, where=self.np_alts < -5, color='green')
+            pyp.fill_between(self.real_chunk_sizes, self.alts, where=self.np_alts > 5, color='red')
+            y_avg = (max(self.alts) - min(self.alts)) / 2
+            bestChunk = all_chunks[scores.index(minScores)]
+            pyp.plot(self.real_chunk_sizes, list(map(lambda x: x * (y_avg/2) + y_avg, self.bestElem))[0], 'y')
+            pyp.plot(self.real_chunk_sizes, [0]+list(x.v1 for x in bestChunk))
+            pyp.plot(self.real_chunk_sizes, self.road_speeds)
+            pyp.hlines(y_avg, min(self.real_chunk_sizes), max(self.real_chunk_sizes),'k')
+            pyp.xlabel('Dist (m)')
+            pyp.xlim(0, self.real_chunk_sizes[-1]); pyp.ylim(0,max(self.alts))
+            
+            pyp.show(False)
+
             #print("{}, {}".format(self.bestScore, sum(self.bestElem)))
             file_out.write("{},{},{}\n".format(it,self.bestScore, minScores))
 
@@ -651,13 +742,13 @@ class TFM_Application():
             else:
                 iNumOfConsecutiveStuck = 0
 
-            if (iNumOfConsecutiveStuck >= 15):
+            if (iNumOfConsecutiveStuck >= math.floor(0.3*num_iterations)):
                 print("15 Stuck iterations. Resetting population.", end="")
                 
                 good_elems2 = []
                 good_elems2.append(self.bestElem)
 
-                new_pops = self.createParallelPopulation(len(self.alts), 99,False)
+                new_pops = self.createParallelPopulation(len(self.alts), num_elems-1,False)
                 for i in range(len(new_pops)):
                     good_elems2.append(new_pops[i])
 
@@ -702,11 +793,11 @@ class TFM_Application():
         print("Best option: {}/{}".format(self.real_chunk_sizes, self.bestElem))
         print("Speeds: {}".format([0]+list(x.v1 for x in bestChunk)))
 
-    def getOptimumProfileTime(self):
+    def getOptimumProfileTime(self, num_elems):
         file_out = open("tfm.out", "w")
         ###################################################
         # Creating population
-        population = self.createParallelPopulation(len(self.alts), 200)
+        population = self.createParallelPopulation(len(self.alts), num_elems)
 
         # Obtain initial scores
         all_chunks = []
@@ -717,6 +808,8 @@ class TFM_Application():
         self.bestScore = minScores
         self.bestElem = deepcopy(population[scores.index(minScores)])
         print("Best score before start is {} Sec.".format(self.bestScore))
+        iNumOfConsecutiveStuck = 0
+        iPrevScore = self.bestScore
 
         y_avg = (max(self.alts) - min(self.alts)) / 4
         bestChunk = all_chunks[scores.index(minScores)]
@@ -801,6 +894,37 @@ class TFM_Application():
                 print("Update: {}, pos of. {}".format(minScores, scores.index(minScores)))
                 self.bestScore = minScores
                 self.bestElem = deepcopy(population[scores.index(minScores)])
+
+            window= np.ones(int(10))/float(10)
+            rl_avg = np.convolve(self.bestElem[0], window, 'same')
+
+            pyp.close('all')
+            pyp.figure()
+            
+            pyp.subplot(211)
+            pyp.plot(self.real_chunk_sizes, self.bestElem[0], lw=0.5, color='black')
+            pyp.plot(self.real_chunk_sizes, rl_avg, lw=2.0, color='blue')
+            pyp.hlines(0, 0, self.real_chunk_sizes[-1], colors='black', linestyles='--')
+            pyp.xlim(0, self.real_chunk_sizes[-1])
+            pyp.ylabel('Accel.')
+            pyp.xlabel('Dist (m)')
+            
+            pyp.subplot(212)
+
+            pyp.fill_between(self.real_chunk_sizes, self.alts, color='blue')
+            pyp.fill_between(self.real_chunk_sizes, self.alts, where=self.np_alts < -5, color='green')
+            pyp.fill_between(self.real_chunk_sizes, self.alts, where=self.np_alts > 5, color='red')
+            y_avg = (max(self.alts) - min(self.alts)) / 2
+            bestChunk = all_chunks[scores.index(minScores)]
+            pyp.plot(self.real_chunk_sizes, list(map(lambda x: x * (y_avg/2) + y_avg, self.bestElem))[0], 'y')
+            pyp.plot(self.real_chunk_sizes, [0]+list(x.v1 for x in bestChunk))
+            pyp.plot(self.real_chunk_sizes, self.road_speeds)
+            pyp.hlines(y_avg, min(self.real_chunk_sizes), max(self.real_chunk_sizes),'k')
+            pyp.xlabel('Dist (m)')
+            pyp.xlim(0, self.real_chunk_sizes[-1]); pyp.ylim(0,max(self.alts))
+            
+            pyp.show(False)
+
             #print("{}, {}".format(self.bestScore, sum(self.bestElem)))
             file_out.write("{},{},{}\n".format(it,self.bestScore, minScores))
 
@@ -835,6 +959,33 @@ class TFM_Application():
             #        population[i] = temp_pop
             #        print("{} ".format(i), end="")
             #print(" corrected.")
+
+
+            ###################################################################
+            ##                              DOOMSDAY                         ##
+            ###################################################################
+            if (iPrevScore == self.bestScore):
+                iNumOfConsecutiveStuck += 1
+            else:
+                iNumOfConsecutiveStuck = 0
+
+            if (iNumOfConsecutiveStuck >= math.floor(0.3*num_iterations)):
+                print("15 Stuck iterations. Resetting population.", end="")
+                
+                good_elems2 = []
+                good_elems2.append(self.bestElem)
+
+                new_pops = self.createParallelPopulation(len(self.alts), num_elems-1,False)
+                for i in range(len(new_pops)):
+                    good_elems2.append(new_pops[i])
+
+                population = good_elems2[:]
+                iNumOfConsecutiveStuck = 0
+
+                print(" DONE.")
+
+            iPrevScore = self.bestScore
+
 
             ###################################################################
             ##                      REDRAW EACH ITERATION                    ##
