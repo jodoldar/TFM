@@ -300,6 +300,7 @@ class TFM_Application():
 
     def getOptimumProfile(self, num_elems):
         file_out = open("tfm.out", "w")
+        pyp.ion()
         ###################################################
         # Creating population
         population = self.createParallelPopulation(len(self.alts), num_elems)
@@ -453,7 +454,7 @@ class TFM_Application():
             pyp.xlabel('Dist (m)')
             pyp.xlim(0, self.real_chunk_sizes[-1]); pyp.ylim(0,max(self.alts))
             
-            pyp.show(False)
+            pyp.show()
 
             #print("{}, {}".format(self.bestScore, sum(self.bestElem)))
             file_out.write("{},{},{}\n".format(it,self.bestScore, minScores))
@@ -545,7 +546,7 @@ class TFM_Application():
             ###################################################################
 
         #print(scores)
-        self.addInfo("Best score: {} kWh".format(round(self.bestScore/3600),2))
+        self.addInfo("Best score: {} kWh".format(round(self.bestScore/3600,2)))
         file_out.close()
 
     def getOptimumProfileMixed(self, num_elems):
@@ -1016,19 +1017,19 @@ class TFM_Application():
             ###################################################################
 
         #print(scores)
-        self.addInfo("Best score: {} M.".format(round(self.bestScore/60),2))
+        self.addInfo("Best score: {} M.".format(round(self.bestScore/60,2)))
         file_out.close()
 
-    def createPopulation(self, shape):
-        pops = []
-        print("Creating population...", end='', flush=True)
-        while (len(pops) < 15):
-            candidate = self.createSubject(shape)
-            if (self.v2_score(candidate[0], self.vehicles_db["Tesla Model X LR"]["Cons"]) != -1):
-                pops.append(candidate[0])
-                print(" {}".format(len(pops)), end='', flush=True)
-        print("")
-        return pops
+    #def createPopulation(self, shape):
+    #    pops = []
+    #    print("Creating population...", end='', flush=True)
+    #    while (len(pops) < 15):
+    #        candidate = self.createSubject(shape)
+    #        if (self.v2_score(candidate[0], self.vehicles_db["Tesla Model X LR"]["Cons"]) != -1):
+    #            pops.append(candidate[0])
+    #            print(" {}".format(len(pops)), end='', flush=True)
+    #    print("")
+    #    return pops
 
     def createParallelPopulation(self, shape, num_of_elems=30, verbose=True):
         pops = []
@@ -1091,7 +1092,7 @@ class TFM_Application():
         return scores, chunks
 
     def v3_obtainScoresByMix(self, population):
-        scoresEle = []; scoresT = []; chunks = [];
+        scoresEle = []; scoresT = []; chunks = []
 
         for elem in population:
             lcl_scoreEle, lcl_scoreT, lcl_chunk = self.v3_scoreByMix(elem)
@@ -1217,9 +1218,9 @@ class TFM_Application():
 
             #print("Chunk {}. v0-> {}, v1-> {}, accel-> {}[{}], slp: {}[{}]".format(i, chunks[-1].v0, chunks[-1].v1, chunks[-1].accel, adapt_cruise_accel, chunks[-1].slope, self.real_chunk_sizes[i]))
         
-        if (not self.v2_checkValid(chunks)):
+        #if (not self.v2_checkValid(chunks)):
             #print(profile)
-            return -1
+        #    return -1
 
         return cons[0]
 
@@ -1261,8 +1262,8 @@ class TFM_Application():
                     new_profile[i] = temp_profile[i] - 0.1
 
 
-            if (self.v2_checkValid(chunks)):
-                break
+            #if (self.v2_checkValid(chunks)):
+            #    break
 
             attempts += 1
 
