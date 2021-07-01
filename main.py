@@ -280,7 +280,7 @@ class TFM_Application():
 
         self.route_info_available = True
 
-    def getIOptimumProfile(self, num_elems=30):
+    def getIOptimumProfile(self, num_elems=100):
         print("Info? {}, Profile? {}".format(self.route_info_available, self.ga_method_cb.current()))
 
         if (self.route_info_available == False):
@@ -419,7 +419,7 @@ class TFM_Application():
 
             scores, all_chunks = self.v3_obtainScores(population)
             #print(scores, end='')
-            minScores = min([n for n in scores if n>0], default=1000000)
+            minScores = min([n for n in scores if n>0], default=1000000000)
             print(" {} ¿{} < {}?".format(minScores, minScores, self.bestScore))
             if (minScores < self.bestScore):
                 print("Update: {}, pos of. {}".format(minScores, scores.index(minScores)))
@@ -428,33 +428,34 @@ class TFM_Application():
             
             window= np.ones(int(10))/float(10)
             rl_avg = np.convolve(self.bestElem[0], window, 'same')
+            
+            if it >= (num_iterations-1):
+                pyp.close('all')
+                pyp.figure()
+                
+                pyp.subplot(211)
+                pyp.plot(self.real_chunk_sizes, self.bestElem[0], lw=0.5, color='black')
+                pyp.plot(self.real_chunk_sizes, rl_avg, lw=2.0, color='blue')
+                pyp.hlines(0, 0, self.real_chunk_sizes[-1], colors='black', linestyles='--')
+                pyp.xlim(0, self.real_chunk_sizes[-1])
+                pyp.ylabel('Accel.')
+                pyp.xlabel('Dist (m)')
+                
+                pyp.subplot(212)
 
-            pyp.close('all')
-            pyp.figure()
-            
-            pyp.subplot(211)
-            pyp.plot(self.real_chunk_sizes, self.bestElem[0], lw=0.5, color='black')
-            pyp.plot(self.real_chunk_sizes, rl_avg, lw=2.0, color='blue')
-            pyp.hlines(0, 0, self.real_chunk_sizes[-1], colors='black', linestyles='--')
-            pyp.xlim(0, self.real_chunk_sizes[-1])
-            pyp.ylabel('Accel.')
-            pyp.xlabel('Dist (m)')
-            
-            pyp.subplot(212)
+                pyp.fill_between(self.real_chunk_sizes, self.alts, color='blue')
+                pyp.fill_between(self.real_chunk_sizes, self.alts, where=self.np_alts < -5, color='green')
+                pyp.fill_between(self.real_chunk_sizes, self.alts, where=self.np_alts > 5, color='red')
+                y_avg = (max(self.alts) - min(self.alts)) / 2
+                bestChunk = all_chunks[scores.index(minScores)]
+                pyp.plot(self.real_chunk_sizes, list(map(lambda x: x * (y_avg/2) + y_avg, self.bestElem))[0], 'y')
+                pyp.plot(self.real_chunk_sizes, [0]+list(x.v1 for x in bestChunk))
+                pyp.plot(self.real_chunk_sizes, self.road_speeds)
+                pyp.hlines(y_avg, min(self.real_chunk_sizes), max(self.real_chunk_sizes),'k')
+                pyp.xlabel('Dist (m)')
+                pyp.xlim(0, self.real_chunk_sizes[-1]); pyp.ylim(0,max(self.alts))
 
-            pyp.fill_between(self.real_chunk_sizes, self.alts, color='blue')
-            pyp.fill_between(self.real_chunk_sizes, self.alts, where=self.np_alts < -5, color='green')
-            pyp.fill_between(self.real_chunk_sizes, self.alts, where=self.np_alts > 5, color='red')
-            y_avg = (max(self.alts) - min(self.alts)) / 2
-            bestChunk = all_chunks[scores.index(minScores)]
-            pyp.plot(self.real_chunk_sizes, list(map(lambda x: x * (y_avg/2) + y_avg, self.bestElem))[0], 'y')
-            pyp.plot(self.real_chunk_sizes, [0]+list(x.v1 for x in bestChunk))
-            pyp.plot(self.real_chunk_sizes, self.road_speeds)
-            pyp.hlines(y_avg, min(self.real_chunk_sizes), max(self.real_chunk_sizes),'k')
-            pyp.xlabel('Dist (m)')
-            pyp.xlim(0, self.real_chunk_sizes[-1]); pyp.ylim(0,max(self.alts))
-            
-            pyp.show()
+                pyp.show()
 
             #print("{}, {}".format(self.bestScore, sum(self.bestElem)))
             file_out.write("{},{},{}\n".format(it,self.bestScore, minScores))
@@ -482,13 +483,17 @@ class TFM_Application():
             ##                  CORRECTION OF INDIVIDUALS (CORRECT)          ##
             ###################################################################
             #print("{} - Positions ".format(it), end="")
+            #good_elems = []
             #for i in range(0, len(population)):
-            #    if scores[i] < 0:
+            #    if scores[i] >= 0:
+            #        good_elems.append(population[i])
+            #    else:
             #        # Correction time
             #        temp_pop = self.v3_correction(population[i], all_chunks[i])
-            ##        temp_pop = self.v2_correction(self.newPopulation[i],self.vehicles_db["Tesla Model X LR"]["Cons"])
-            #        population[i] = temp_pop
+            #        temp_pop = self.v2_correction(self.newPopulation[i],self.vehicles_db["Tesla Model X LR"]["Cons"])
+            #        good_elems.append(temp_pop)
             #        print("{} ".format(i), end="")
+            #population = good_elems[:]
             #print(" corrected.")
 
 
@@ -532,12 +537,13 @@ class TFM_Application():
             self.axis0.tick_params(axis='y', which='both', left=False, right=False, labelleft=False)
 
             #self.axis1.clear()
-            y_avg = (max(self.alts) - min(self.alts)) / 2
-            bestChunk = all_chunks[scores.index(minScores)]
-            self.axis0.plot(self.real_chunk_sizes, list(map(lambda x: x * (y_avg/2) + y_avg, self.bestElem))[0], 'y')
-            self.axis0.plot(self.real_chunk_sizes, [0]+list(x.v1 for x in bestChunk))
-            self.axis0.plot(self.real_chunk_sizes, self.road_speeds)
-            self.axis0.hlines(y_avg, min(self.real_chunk_sizes), max(self.real_chunk_sizes),'k')
+            if (minScores < 100000000):
+                y_avg = (max(self.alts) - min(self.alts)) / 2
+                bestChunk = all_chunks[scores.index(minScores)]
+                self.axis0.plot(self.real_chunk_sizes, list(map(lambda x: x * (y_avg/2) + y_avg, self.bestElem))[0], 'y')
+                self.axis0.plot(self.real_chunk_sizes, [0]+list(x.v1 for x in bestChunk))
+                self.axis0.plot(self.real_chunk_sizes, self.road_speeds)
+                self.axis0.hlines(y_avg, min(self.real_chunk_sizes), max(self.real_chunk_sizes),'k')
             self.canvas.draw()
             self.root.update()
 
