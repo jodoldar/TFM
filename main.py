@@ -678,32 +678,33 @@ class TFM_Application():
             window= np.ones(int(10))/float(10)
             rl_avg = np.convolve(self.bestElem[0], window, 'same')
 
-            pyp.close('all')
-            pyp.figure()
-            
-            pyp.subplot(211)
-            pyp.plot(self.real_chunk_sizes, self.bestElem[0], lw=0.5, color='black')
-            pyp.plot(self.real_chunk_sizes, rl_avg, lw=2.0, color='blue')
-            pyp.hlines(0, 0, self.real_chunk_sizes[-1], colors='black', linestyles='--')
-            pyp.xlim(0, self.real_chunk_sizes[-1])
-            pyp.ylabel('Accel.')
-            pyp.xlabel('Dist (m)')
-            
-            pyp.subplot(212)
+            if it >= (num_iterations-1):
+                pyp.close('all')
+                pyp.figure()
+                
+                pyp.subplot(211)
+                pyp.plot(self.real_chunk_sizes, self.bestElem[0], lw=0.5, color='black')
+                pyp.plot(self.real_chunk_sizes, rl_avg, lw=2.0, color='blue')
+                pyp.hlines(0, 0, self.real_chunk_sizes[-1], colors='black', linestyles='--')
+                pyp.xlim(0, self.real_chunk_sizes[-1])
+                pyp.ylabel('Accel.')
+                pyp.xlabel('Dist (m)')
+                
+                pyp.subplot(212)
 
-            pyp.fill_between(self.real_chunk_sizes, self.alts, color='blue')
-            pyp.fill_between(self.real_chunk_sizes, self.alts, where=self.np_alts < -5, color='green')
-            pyp.fill_between(self.real_chunk_sizes, self.alts, where=self.np_alts > 5, color='red')
-            y_avg = (max(self.alts) - min(self.alts)) / 2
-            bestChunk = all_chunks[scores.index(minScores)]
-            pyp.plot(self.real_chunk_sizes, list(map(lambda x: x * (y_avg/2) + y_avg, self.bestElem))[0], 'y')
-            pyp.plot(self.real_chunk_sizes, [0]+list(x.v1 for x in bestChunk))
-            pyp.plot(self.real_chunk_sizes, self.road_speeds)
-            pyp.hlines(y_avg, min(self.real_chunk_sizes), max(self.real_chunk_sizes),'k')
-            pyp.xlabel('Dist (m)')
-            pyp.xlim(0, self.real_chunk_sizes[-1]); pyp.ylim(0,max(self.alts))
-            
-            pyp.show(False)
+                pyp.fill_between(self.real_chunk_sizes, self.alts, color='blue')
+                pyp.fill_between(self.real_chunk_sizes, self.alts, where=self.np_alts < -5, color='green')
+                pyp.fill_between(self.real_chunk_sizes, self.alts, where=self.np_alts > 5, color='red')
+                y_avg = (max(self.alts) - min(self.alts)) / 2
+                bestChunk = all_chunks[scores.index(minScores)]
+                pyp.plot(self.real_chunk_sizes, list(map(lambda x: x * (y_avg/2) + y_avg, self.bestElem))[0], 'y')
+                pyp.plot(self.real_chunk_sizes, [0]+list(x.v1 for x in bestChunk))
+                pyp.plot(self.real_chunk_sizes, self.road_speeds)
+                pyp.hlines(y_avg, min(self.real_chunk_sizes), max(self.real_chunk_sizes),'k')
+                pyp.xlabel('Dist (m)')
+                pyp.xlim(0, self.real_chunk_sizes[-1]); pyp.ylim(0,max(self.alts))
+                
+                pyp.show()
 
             #print("{}, {}".format(self.bestScore, sum(self.bestElem)))
             file_out.write("{},{},{}\n".format(it,self.bestScore, minScores))
@@ -905,32 +906,33 @@ class TFM_Application():
             window= np.ones(int(10))/float(10)
             rl_avg = np.convolve(self.bestElem[0], window, 'same')
 
-            pyp.close('all')
-            pyp.figure()
-            
-            pyp.subplot(211)
-            pyp.plot(self.real_chunk_sizes, self.bestElem[0], lw=0.5, color='black')
-            pyp.plot(self.real_chunk_sizes, rl_avg, lw=2.0, color='blue')
-            pyp.hlines(0, 0, self.real_chunk_sizes[-1], colors='black', linestyles='--')
-            pyp.xlim(0, self.real_chunk_sizes[-1])
-            pyp.ylabel('Accel.')
-            pyp.xlabel('Dist (m)')
-            
-            pyp.subplot(212)
+            if it >= (num_iterations-1):
+                pyp.close('all')
+                pyp.figure()
+                
+                pyp.subplot(211)
+                pyp.plot(self.real_chunk_sizes, self.bestElem[0], lw=0.5, color='black')
+                pyp.plot(self.real_chunk_sizes, rl_avg, lw=2.0, color='blue')
+                pyp.hlines(0, 0, self.real_chunk_sizes[-1], colors='black', linestyles='--')
+                pyp.xlim(0, self.real_chunk_sizes[-1])
+                pyp.ylabel('Accel.')
+                pyp.xlabel('Dist (m)')
+                
+                pyp.subplot(212)
 
-            pyp.fill_between(self.real_chunk_sizes, self.alts, color='blue')
-            pyp.fill_between(self.real_chunk_sizes, self.alts, where=self.np_alts < -5, color='green')
-            pyp.fill_between(self.real_chunk_sizes, self.alts, where=self.np_alts > 5, color='red')
-            y_avg = (max(self.alts) - min(self.alts)) / 2
-            bestChunk = all_chunks[scores.index(minScores)]
-            pyp.plot(self.real_chunk_sizes, list(map(lambda x: x * (y_avg/2) + y_avg, self.bestElem))[0], 'y')
-            pyp.plot(self.real_chunk_sizes, [0]+list(x.v1 for x in bestChunk))
-            pyp.plot(self.real_chunk_sizes, self.road_speeds)
-            pyp.hlines(y_avg, min(self.real_chunk_sizes), max(self.real_chunk_sizes),'k')
-            pyp.xlabel('Dist (m)')
-            pyp.xlim(0, self.real_chunk_sizes[-1]); pyp.ylim(0,max(self.alts))
-            
-            pyp.show(False)
+                pyp.fill_between(self.real_chunk_sizes, self.alts, color='blue')
+                pyp.fill_between(self.real_chunk_sizes, self.alts, where=self.np_alts < -5, color='green')
+                pyp.fill_between(self.real_chunk_sizes, self.alts, where=self.np_alts > 5, color='red')
+                y_avg = (max(self.alts) - min(self.alts)) / 2
+                bestChunk = all_chunks[scores.index(minScores)]
+                pyp.plot(self.real_chunk_sizes, list(map(lambda x: x * (y_avg/2) + y_avg, self.bestElem))[0], 'y')
+                pyp.plot(self.real_chunk_sizes, [0]+list(x.v1 for x in bestChunk))
+                pyp.plot(self.real_chunk_sizes, self.road_speeds)
+                pyp.hlines(y_avg, min(self.real_chunk_sizes), max(self.real_chunk_sizes),'k')
+                pyp.xlabel('Dist (m)')
+                pyp.xlim(0, self.real_chunk_sizes[-1]); pyp.ylim(0,max(self.alts))
+                
+                pyp.show()
 
             #print("{}, {}".format(self.bestScore, sum(self.bestElem)))
             file_out.write("{},{},{}\n".format(it,self.bestScore, minScores))
@@ -1297,13 +1299,26 @@ class TFM_Application():
                 new_profile[0][i] = new_profile[0][i]*0.9
                 tmp_score, tmp_chunks = self.v3_score(new_profile)
                 
-                while (tmp_chunks[i].v1 > self.road_speeds[i]):
+                while (tmp_chunks[i].v1 > self.road_speeds[i] and new_profile[0][i] > -1):
                     new_profile[0][i] = new_profile[0][i]-0.05
                     tmp_score, tmp_chunks = self.v3_score(new_profile)
                 
                 if (tmp_score > 0):
                     # Element corrected
                     return new_profile
+            elif (i > 10 and chunks[i].v1 < (self.road_speeds[i]/4)):
+                # Moment to try the recovery. Soften the acceleration performed
+                new_profile[0][i] = new_profile[0][i]*1.1
+                tmp_score, tmp_chunks = self.v3_score(new_profile)
+
+                while (tmp_chunks[i].v1 < (self.road_speeds[i]/4) and new_profile[0][i]<1):
+                    new_profile[0][i] = new_profile[0][i]+0.05
+                    tmp_score, tmp_chunks = self.v3_score(new_profile)
+                
+                if (tmp_score > 0):
+                    # Element corrected
+                    return new_profile
+
 
         # In case we end here, then best-effort has been made ¿without success?
         return new_profile
