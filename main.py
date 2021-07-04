@@ -810,6 +810,7 @@ class TFM_Application():
         # Obtain initial scores
         all_chunks = []
         scores, all_chunks = self.v3_obtainScoresByTime(population)
+        bestKwhScore = 0
 
         print(scores)
         minScores = float(min([n for n in scores if n>0], default=1000000))
@@ -906,6 +907,8 @@ class TFM_Application():
             window= np.ones(int(10))/float(10)
             rl_avg = np.convolve(self.bestElem[0], window, 'same')
 
+            bestKwhScore = self.v3_score(self.bestElem)
+
             if it >= (num_iterations-1):
                 pyp.close('all')
                 pyp.figure()
@@ -932,7 +935,7 @@ class TFM_Application():
                 pyp.xlabel('Dist (m)')
                 pyp.xlim(0, self.real_chunk_sizes[-1]); pyp.ylim(0,max(self.alts))
                 
-                pyp.show()
+                pyp.show(False)
 
             #print("{}, {}".format(self.bestScore, sum(self.bestElem)))
             file_out.write("{},{},{}\n".format(it,self.bestScore, minScores))
@@ -1026,6 +1029,7 @@ class TFM_Application():
 
         #print(scores)
         self.addInfo("Best score: {} M.".format(round(self.bestScore/60,2)))
+        print("Best kwh consumed are {}".format(bestKwhScore[0]/3600))
         file_out.close()
 
     #def createPopulation(self, shape):
