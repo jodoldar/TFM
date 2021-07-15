@@ -575,7 +575,7 @@ class TFM_Application():
                 scoreKwhNorm.append(-1)
                 scoreTNorm.append(-1)
 
-        scores = list((np.array(scoreKwhNorm)+np.array(scoreTNorm))/2)
+        scores = list((np.array(scoreKwhNorm)*0.25+np.array(scoreTNorm)*0.75))
 
         print(scores)
         minScores = float(min([n for n in scores if n>0], default=1000000))
@@ -641,9 +641,9 @@ class TFM_Application():
             ###################################################################
 
             # self.mutate_v2(int(np.random.rand()*len(self.newPopulation)), self.newPopulation)
-            for i in range(0, len(population)):
+            for i in range(0, len(self.newPopulation)-1):
                 if (np.random.rand() > 0.9):
-                    self.mutate_v3(i, population)
+                    self.mutate_v3(i, self.newPopulation)
 
             ###################################################################
             ##                         GET BEST SCORE                        ##
@@ -664,7 +664,7 @@ class TFM_Application():
                     scoreKwhNorm.append(-1)
                     scoreTNorm.append(-1)
 
-            scores = list((np.array(scoreKwhNorm)+np.array(scoreTNorm))/2)
+            scores = list((np.array(scoreKwhNorm)*0.25+np.array(scoreTNorm)*0.75))
             #scores, all_chunks = self.v3_obtainScoresByTime(population)
             print(scores, end='')
             minScores = min([n for n in scores if n>0], default=1000000)
@@ -704,7 +704,7 @@ class TFM_Application():
                 pyp.xlabel('Dist (m)')
                 pyp.xlim(0, self.real_chunk_sizes[-1]); pyp.ylim(0,max(self.alts))
                 
-                pyp.show()
+                pyp.show(False)
 
             #print("{}, {}".format(self.bestScore, sum(self.bestElem)))
             file_out.write("{},{},{}\n".format(it,self.bestScore, minScores))
@@ -756,7 +756,7 @@ class TFM_Application():
                 good_elems2 = []
                 good_elems2.append(self.bestElem)
 
-                new_pops = self.createParallelPopulation(len(self.alts), num_elems-1,False)
+                new_pops = self.createParallelPopulation(len(self.alts),num_elems-1,False)
                 for i in range(len(new_pops)):
                     good_elems2.append(new_pops[i])
 
@@ -1371,7 +1371,7 @@ class TFM_Application():
 
     def mutate_v3(self, pos, population):
         mut_pos = round(np.random.uniform(0, len(population)-1))
-        population[pos][0][mut_pos] = np.random.uniform()
+        #population[pos][mut_pos] = np.random.uniform()
 
 def clamp(n, minn, maxn): return min(max(n, minn), maxn) 
 
