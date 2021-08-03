@@ -1371,7 +1371,7 @@ class TFM_Application():
 
     def mutate_v3(self, pos, population):
         mut_pos = round(np.random.uniform(0, len(population)-1))
-        #population[pos][mut_pos] = np.random.uniform()
+        population[pos][0][mut_pos] = np.random.uniform()
 
 def clamp(n, minn, maxn): return min(max(n, minn), maxn) 
 
