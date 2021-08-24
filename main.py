@@ -678,6 +678,9 @@ class TFM_Application():
             window= np.ones(int(10))/float(10)
             rl_avg = np.convolve(self.bestElem[0], window, 'same')
 
+            window2 = np.ones(int(5))/float(5)
+            rl_avg5 = np.convolve(self.bestElem[0], window2, 'same')
+
             if it >= (num_iterations-1):
                 pyp.close('all')
                 pyp.figure()
@@ -709,6 +712,7 @@ class TFM_Application():
             #print("{}, {}".format(self.bestScore, sum(self.bestElem)))
             file_out.write("{},{},{}\n".format(it,self.bestScore, minScores))
 
+            
             ###################################################################
             ##                  CORRECTION OF INDIVIDUALS (REPLACE)          ##
             ###################################################################
@@ -797,6 +801,10 @@ class TFM_Application():
         #print(scores)
         self.addInfo("Best score: {}/10 ({} kWh, {} Min.).".format(self.bestScore,round(scoreKwh[min_index]/360000), round(scoreSec[min_index]/60)))
         file_out.close()
+
+        file_sol = open("tfm_sol.out", "a")
+        file_sol.write("5-avg: {}\n10-avg: {}\nBest elem: {}\n".format(rl_avg5, rl_avg, self.bestElem[0]))
+        file_sol.close()
 
         print("Best option: {}/{}".format(self.real_chunk_sizes, self.bestElem))
         print("Speeds: {}".format([0]+list(x.v1 for x in bestChunk)))
