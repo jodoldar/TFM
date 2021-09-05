@@ -277,7 +277,7 @@ class TFM_Application():
         ###################################################
 
         
-
+        print("Altitudes used: {}".format(self.alts))
         self.route_info_available = True
 
     def getIOptimumProfile(self, num_elems=100):
@@ -615,10 +615,13 @@ class TFM_Application():
             candidates = []; children = []
 
             # Get best candidates
+            jumped = 0
             for sor_it in range(0, len(ngr)):
-                if ((ngr[sor_it] > (self.ngr_val * 0.4)) or (len(candidates) < max_candidates)):
+                if (((ngr[sor_it] > (self.ngr_val * 0.4)) or (len(candidates) < max_candidates)) and (sort_positions[sor_it] < len(population))):
                     candidates.append(population[sort_positions[sor_it]])
                     #print("Added position: {} -> {}".format(sort_positions[sor_it], ngr[sor_it]))
+                if (sort_positions[sor_it] < len(population)):
+                    jumped += 1
 
             # Get new children
             for pos in range(0, max_candidates, 2):
@@ -631,7 +634,7 @@ class TFM_Application():
                     children.append(childA); children.append(childB)
 
             # Replace worst population
-            for pos in range(0, max_candidates):
+            for pos in range(0, max_candidates-jumped):
                 population[len(ngr) - 1 - pos] = children[pos]
 
             self.newPopulation[:] = population
@@ -1378,7 +1381,7 @@ class TFM_Application():
                 population[pos][0][i] = clamp(population[pos][0][i] + (0.1*fFactor), -1, 1)
 
     def mutate_v3(self, pos, population):
-        mut_pos = round(np.random.uniform(0, len(population)-1))
+        mut_pos = round(np.random.uniform(0, len(population[0][0])-1))
         population[pos][0][mut_pos] = np.random.uniform()
 
 def clamp(n, minn, maxn): return min(max(n, minn), maxn) 
